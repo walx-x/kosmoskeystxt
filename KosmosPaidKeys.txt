@@ -2,3 +2,4 @@ wallyPremium
 wizzyPremium
 KOSMOS-CEPD-JKUV
 KOSMOS-MHO8-A1OF
+KOSMOS-1Q0F-PQCY
