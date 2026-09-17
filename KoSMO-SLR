@@ -1,6 +1,6 @@
 --============================================================
--- KOSMOS HUB V4 — CONFIG SYSTEM & AUTO-LOAD EDITION
--- Integrated Key System, Silent Aim, ESP, Full Visuals & Config Manager
+-- KOSMOS HUB V4 — MAIN HUB (NO KEY SYSTEM)
+-- Integrated Silent Aim, Visuals, ESP & Auto-Load Config Manager
 --============================================================
 
 --// SERVICES
@@ -71,7 +71,7 @@ local renderConnection = nil
 local inputConnection = nil
 local oldFire = nil
 local SimpleCastModule = nil
-local isUnlocked = false
+local isUnlocked = true
 local espFolder = nil
 local origAmbient, origBrightness, origShadows = Lighting.Ambient, Lighting.Brightness, Lighting.GlobalShadows
 local currentConfigName = "default"
@@ -356,7 +356,7 @@ end
 
 local function updateESP()
     espFolder:ClearAllChildren()
-    if not isUnlocked or not Settings.ESPEnabled then return end
+    if not Settings.ESPEnabled then return end
 
     local cam = getCamera()
     if not cam then return end
@@ -438,13 +438,6 @@ local function updateESP()
 end
 
 renderConnection = RunService.RenderStepped:Connect(function()
-    if not isUnlocked then
-        FOVFrame.Visible = false
-        TargetDotFrame.Visible = false
-        CrosshairFrame.Visible = false
-        return
-    end
-
     if Settings.RainbowFOV then
         local hue = (tick() % 5) / 5
         Settings.FOVColor = Color3.fromHSV(hue, 0.8, 1)
@@ -487,7 +480,7 @@ pcall(function()
     if SimpleCastModule and SimpleCastModule.Fire then
         oldFire = SimpleCastModule.Fire
         SimpleCastModule.Fire = function(self, origin, direction, speed, options)
-            if isUnlocked and Settings.Enabled then
+            if Settings.Enabled then
                 local roll = math.random(1, 100)
                 if roll <= Settings.HitProbability then
                     local activeFOV = getCurrentFOV()
@@ -506,7 +499,6 @@ pcall(function()
 end)
 
 local function UnloadScript()
-    isUnlocked = false
     if renderConnection then renderConnection:Disconnect() end
     if inputConnection then inputConnection:Disconnect() end
     if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
@@ -518,109 +510,6 @@ local function UnloadScript()
     if espFolder then espFolder:Destroy() end
     if ScreenGui then ScreenGui:Destroy() end
 end
-
---============================================================
--- AUTHENTICATION KEY GUI
---============================================================
-
-local KeyGui = Create("Frame", {
-    Size = UDim2.new(0, 380, 0, 230),
-    Position = UDim2.new(0.5, -190, 0.5, -115),
-    BackgroundColor3 = Settings.Background,
-    BorderSizePixel = 0,
-    Active = true,
-    Draggable = true
-}, ScreenGui)
-
-Corner(KeyGui, 10)
-Stroke(KeyGui, Settings.Accent, 1.5)
-
-local KeyTitle = Label(KeyGui, "KOSMOS HUB — AUTHENTICATION", 13, Settings.Text, Enum.Font.GothamBold)
-KeyTitle.Size = UDim2.new(1, 0, 0, 45)
-KeyTitle.Position = UDim2.new(0, 0, 0, 10)
-KeyTitle.TextXAlignment = Enum.TextXAlignment.Center
-
-local KeyInput = Create("TextBox", {
-    Size = UDim2.new(1, -40, 0, 40),
-    Position = UDim2.new(0, 20, 0, 65),
-    BackgroundColor3 = Settings.Element,
-    Text = "",
-    PlaceholderText = "Paste your license key...",
-    PlaceholderColor3 = Settings.SubText,
-    TextColor3 = Settings.Text,
-    Font = Enum.Font.GothamMedium,
-    TextSize = 12
-}, KeyGui)
-
-Corner(KeyInput, 8)
-Stroke(KeyInput, Settings.Border, 1)
-
-local VerifyBtn = Create("TextButton", {
-    Size = UDim2.new(1, -40, 0, 40),
-    Position = UDim2.new(0, 20, 0, 120),
-    BackgroundColor3 = Settings.Accent,
-    Text = "AUTHENTICATE",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 12
-}, KeyGui)
-
-Corner(VerifyBtn, 8)
-
---============================================================
--- LOADING SCREEN ANIMATION
---============================================================
-
-local Intro = Create("Frame", {
-    Size = UDim2.fromScale(1, 1),
-    BackgroundColor3 = Settings.Background,
-    BorderSizePixel = 0,
-    ZIndex = 500,
-    Visible = false
-}, ScreenGui)
-
-local Glow = Create("Frame", {
-    Size = UDim2.fromOffset(500, 500),
-    Position = UDim2.fromScale(0.5, 0.5),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundColor3 = Settings.Accent,
-    BackgroundTransparency = 0.88,
-    BorderSizePixel = 0,
-    ZIndex = 501
-}, Intro)
-Corner(Glow, 250)
-local GlowScale = Create("UIScale", { Scale = 0.4 }, Glow)
-
-local Ring = Create("Frame", {
-    Size = UDim2.fromOffset(270, 270),
-    Position = UDim2.fromScale(0.5, 0.43),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 501
-}, Intro)
-Corner(Ring, 200)
-local RingStroke = Stroke(Ring, Settings.Accent, 2, 0.15)
-
-local IntroTitle = Label(Intro, "KOSMOS", 34, Settings.Text, Enum.Font.GothamBlack)
-IntroTitle.Size = UDim2.new(1, 0, 0, 50)
-IntroTitle.Position = UDim2.fromScale(0, 0.66)
-IntroTitle.TextXAlignment = Enum.TextXAlignment.Center
-IntroTitle.TextTransparency = 1
-IntroTitle.ZIndex = 503
-
-local IntroSub = Label(Intro, "PURPLE EDITION", 11, Settings.Accent2, Enum.Font.GothamBold)
-IntroSub.Size = UDim2.new(1, 0, 0, 25)
-IntroSub.Position = UDim2.fromScale(0, 0.72)
-IntroSub.TextXAlignment = Enum.TextXAlignment.Center
-IntroSub.TextTransparency = 1
-IntroSub.ZIndex = 503
-
-local LoadingText = Label(Intro, "INITIALIZING SYSTEM...", 9, Settings.SubText, Enum.Font.GothamMedium)
-LoadingText.Size = UDim2.new(1, 0, 0, 20)
-LoadingText.Position = UDim2.fromScale(0, 0.78)
-LoadingText.TextXAlignment = Enum.TextXAlignment.Center
-LoadingText.ZIndex = 503
 
 --============================================================
 -- MAIN DASHBOARD WINDOW
@@ -761,7 +650,7 @@ end)
 --============================================================
 
 local CurrentControls = {}
-local SelectPage -- Forward declaration
+local SelectPage
 
 local function ClearContent()
     for _, obj in ipairs(Content:GetChildren()) do
@@ -1028,7 +917,6 @@ local function RenderSettings()
 
     Section("CONFIGURATION MANAGER", "Save, load and autoload your custom profiles")
 
-    -- Config Name Input Box
     local ConfigInputRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
     Corner(ConfigInputRow, 6)
     
@@ -1070,7 +958,7 @@ local function RenderSettings()
         if LoadConfig(currentConfigName) then
             StatusLbl.Text = "Config '" .. currentConfigName .. "' loaded successfully!"
             StatusLbl.TextColor3 = Settings.Green
-            SelectPage("Settings") -- Refresh view
+            SelectPage("Settings")
         else
             StatusLbl.Text = "Config '" .. currentConfigName .. "' not found!"
             StatusLbl.TextColor3 = Settings.Red
@@ -1178,7 +1066,7 @@ end)
 
 -- Hotkey Listeners
 inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or not isUnlocked then return end
+    if processed then return end
     if input.KeyCode == Settings.ToggleKey then
         Main.Visible = not Main.Visible
     elseif input.KeyCode == Settings.UnloadKey then
@@ -1187,72 +1075,17 @@ inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 --============================================================
--- ONLINE KEY VERIFICATION & INITIALIZATION
+-- AUTOMATIC INITIALIZATION & CONFIG AUTOLOAD
 --============================================================
 
-local RAW_KEYS_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.txt"
-
-local function checkKeyOnline(inputKey)
-    local success, result = pcall(function()
-        return game:HttpGet(RAW_KEYS_URL .. "?nocache=" .. tostring(os.time()))
-    end)
-    if success and result then
-        for key in result:gmatch("[^\r\n]+") do
-            if key:gsub("%s+", "") == inputKey then return true end
-        end
+task.spawn(function()
+    -- Controlla se esiste una configurazione impostata in Auto-Load
+    local autoConfig = GetAutoLoadConfig()
+    if autoConfig then
+        LoadConfig(autoConfig)
     end
-    return false
-end
 
-VerifyBtn.MouseButton1Click:Connect(function()
-    local userTypedKey = KeyInput.Text:gsub("%s+", "")
-    VerifyBtn.Text = "VERIFYING..."
-    
-    task.spawn(function()
-        if checkKeyOnline(userTypedKey) then
-            isUnlocked = true
-            KeyGui:Destroy()
-            
-            Intro.Visible = true
-            Tween(GlowScale, TweenInfo.new(1.1, Enum.EasingStyle.Back), { Scale = 1.15 }):Play()
-            Tween(RingStroke, TweenInfo.new(0.8), { Transparency = 0 }):Play()
-            Tween(IntroTitle, TweenInfo.new(0.7, Enum.EasingStyle.Quint), { TextTransparency = 0 }):Play()
-            Tween(IntroSub, TweenInfo.new(0.6), { TextTransparency = 0 }):Play()
-
-            -- Auto-Load Logic Execution
-            local autoConfig = GetAutoLoadConfig()
-            local loadedAuto = false
-            if autoConfig then
-                loadedAuto = LoadConfig(autoConfig)
-            end
-
-            local messages = {
-                "INITIALIZING SYSTEM...",
-                "AUTHENTICATED ONLINE...",
-                loadedAuto and ("AUTOLOADED CONFIG: " .. autoConfig) or "NO AUTOLOAD: DEFAULTS SET TO OFF",
-                "APPLYING HOOKS...",
-                "READY."
-            }
-
-            for _, message in ipairs(messages) do
-                LoadingText.Text = message
-                task.wait(0.38)
-            end
-
-            Tween(Intro, TweenInfo.new(0.65, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
-            Tween(IntroTitle, TweenInfo.new(0.45), { TextTransparency = 1 }):Play()
-            Tween(IntroSub, TweenInfo.new(0.45), { TextTransparency = 1 }):Play()
-            Tween(LoadingText, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
-
-            task.wait(0.7)
-            Intro:Destroy()
-            
-            Main.Visible = true
-            SelectPage("Dashboard")
-        else
-            VerifyBtn.Text = "AUTHENTICATE"
-            KeyInput.Text = ""
-            KeyInput.PlaceholderText = "Invalid License Key!"
-        end
-    end)
+    -- Apri direttamente l'interfaccia principale
+    Main.Visible = true
+    SelectPage("Dashboard")
 end)
