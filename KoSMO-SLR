@@ -1,7 +1,6 @@
 --============================================================
 -- KOSMOS HUB V4 — FULL UNRESTRICTED EXTENDED MASTER EDITION
--- Complete Framework with Combat, Visuals, Movement, Weapon Modifiers,
--- Player Utilities, Advanced Configuration Manager & Full UI Elements
+-- Complete Framework with Fixed ScreenGui ESP & Expanded Modules
 --============================================================
 
 --// SERVICES
@@ -15,7 +14,6 @@ local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local VirtualUser = game:GetService("VirtualUser")
-local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -66,7 +64,7 @@ local Settings = {
     FlyEnabled = false,
     FlySpeed = 50,
 
-    -- Weapon & Gun Modifiers (Universal Hooks & Frameworks)
+    -- Weapon & Gun Modifiers
     NoRecoil = false,
     NoSpread = false,
     RapidFire = false,
@@ -77,13 +75,15 @@ local Settings = {
     -- Player & Anti-Aim Engine
     Spinbot = false,
     SpinSpeed = 30,
-    AntiStun = false,
-    GodModeUniversal = false,
+    CustomFOV = 70,
+    EnableCustomFOV = false,
+    CustomHipHeight = 2,
+    EnableHipHeight = false,
+    GhostMode = false,
 
     -- Misc & Utility Engine
     AntiAFK = false,
-    FPSUnlocker = false,
-    LowGraphics = false,
+    FPSBoost = false,
 
     -- UI Theme Customization
     Accent = Color3.fromRGB(145, 45, 255),
@@ -103,7 +103,7 @@ local Settings = {
 local Values = {}
 local hitPattern = {"Head", "Torso", "Torso", "Torso", "LeftLeg", "LeftLeg", "RightLeg"}
 local currentPatternIndex = 1
-local renderConnection, steppedConnection, jumpConnection, inputConnection, afkConnection, weaponLoopConnection
+local renderConnection, steppedConnection, jumpConnection, inputConnection, afkConnection
 local oldFire, SimpleCastModule
 local espFolder, tracerFolder
 local origAmbient, origBrightness, origShadows = Lighting.Ambient, Lighting.Brightness, Lighting.GlobalShadows
@@ -111,7 +111,7 @@ local newConfigInputName = "default"
 local selectedDropdownConfig = ""
 
 --============================================================
--- CONFIGURATION FILE SYSTEM (FULL READ/WRITE ENGINE)
+-- CONFIGURATION FILE SYSTEM
 --============================================================
 
 local CONFIG_FOLDER = "KosmosHub_Configs"
@@ -219,7 +219,7 @@ ScreenGui.Parent = CoreGui
 
 espFolder = Instance.new("Folder")
 espFolder.Name = "Kosmos_ESP_Holder"
-espFolder.Parent = CoreGui
+espFolder.Parent = ScreenGui
 
 tracerFolder = Instance.new("Folder")
 tracerFolder.Name = "Kosmos_Tracer_Holder"
@@ -391,7 +391,7 @@ local function getBestTarget(maxDistance)
 end
 
 --============================================================
--- VISUALS & ESP RENDERING SYSTEM
+-- FIXED VISUALS & 2D SCREEN OVERLAY ESP
 --============================================================
 
 local function updateESP()
@@ -403,103 +403,112 @@ local function updateESP()
     if not cam then return end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LocalPlayer and player.Character then
             if not Settings.TeamCheck or player.Team ~= LocalPlayer.Team then
                 local char = player.Character
                 local root = char:FindFirstChild("HumanoidRootPart")
                 local humanoid = char:FindFirstChildWhichIsA("Humanoid")
 
                 if root and humanoid and humanoid.Health > 0 then
-                    local screenPos, onScreen = cam:WorldToViewportPoint(root.Position)
+                    local head = char:FindFirstChild("Head") or root
+                    local headPos, onScreen1 = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 1.2, 0))
+                    local legPos, onScreen2 = cam:WorldToViewportPoint(root.Position - Vector3.new(0, 3.2, 0))
 
-                    -- Snaplines / Tracers
-                    if Settings.ESPTracers and onScreen then
-                        local line = Instance.new("Frame")
-                        line.BorderSizePixel = 0
-                        line.BackgroundColor3 = Settings.TracerColor
-                        line.AnchorPoint = Vector2.new(0.5, 0.5)
+                    if onScreen1 or onScreen2 then
+                        local boxHeight = math.abs(headPos.Y - legPos.Y)
+                        local boxWidth = boxHeight * 0.65
+                        local boxPosX = headPos.X - (boxWidth / 2)
+                        local boxPosY = headPos.Y
 
-                        local startPos = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
-                        local targetVec = Vector2.new(screenPos.X, screenPos.Y)
-                        local distance = (targetVec - startPos).Magnitude
-                        local angle = math.atan2(targetVec.Y - startPos.Y, targetVec.X - startPos.X)
+                        -- 1. Tracers
+                        if Settings.ESPTracers then
+                            local line = Instance.new("Frame")
+                            line.BorderSizePixel = 0
+                            line.BackgroundColor3 = Settings.TracerColor
+                            line.AnchorPoint = Vector2.new(0.5, 0.5)
 
-                        line.Size = UDim2.new(0, distance, 0, 1.5)
-                        line.Position = UDim2.new(0, (startPos.X + targetVec.X) / 2, 0, (startPos.Y + targetVec.Y) / 2)
-                        line.Rotation = math.deg(angle)
-                        line.Parent = tracerFolder
-                    end
+                            local startPos = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
+                            local targetVec = Vector2.new(headPos.X, legPos.Y)
+                            local distance = (targetVec - startPos).Magnitude
+                            local angle = math.atan2(targetVec.Y - startPos.Y, targetVec.X - startPos.X)
 
-                    -- Player Chams Highlight
-                    if Settings.ESPChams then
-                        local highlight = Instance.new("Highlight")
-                        highlight.Adornee = char
-                        highlight.FillColor = Settings.ChamColor
-                        highlight.FillTransparency = 0.5
-                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        highlight.OutlineTransparency = 0
-                        highlight.Parent = espFolder
-                    end
+                            line.Size = UDim2.new(0, distance, 0, 1.5)
+                            line.Position = UDim2.new(0, (startPos.X + targetVec.X) / 2, 0, (startPos.Y + targetVec.Y) / 2)
+                            line.Rotation = math.deg(angle)
+                            line.Parent = tracerFolder
+                        end
 
-                    -- Billboard HUD Overlays
-                    if Settings.ESPBoxes or Settings.ESPNames or Settings.ESPDistance or Settings.ESPHealth then
-                        local bb = Instance.new("BillboardGui")
-                        bb.Adornee = root
-                        bb.Size = UDim2.new(4.2, 0, 5.6, 0)
-                        bb.AlwaysOnTop = true
-                        bb.Parent = espFolder
+                        -- 2. Chams Highlight
+                        if Settings.ESPChams then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Adornee = char
+                            highlight.FillColor = Settings.ChamColor
+                            highlight.FillTransparency = 0.5
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.OutlineTransparency = 0
+                            highlight.Parent = espFolder
+                        end
 
+                        -- 3. 2D Bounding Box
                         if Settings.ESPBoxes then
                             local box = Instance.new("Frame")
-                            box.Size = UDim2.new(1, 0, 1, 0)
+                            box.Size = UDim2.fromOffset(boxWidth, boxHeight)
+                            box.Position = UDim2.fromOffset(boxPosX, boxPosY)
                             box.BackgroundTransparency = 1
-                            box.Parent = bb
+                            box.Parent = espFolder
                             Stroke(box, Settings.ESPColor, 1.5, 0)
                         end
 
+                        -- 4. Player Name
                         if Settings.ESPNames then
                             local nameLbl = Instance.new("TextLabel")
-                            nameLbl.Size = UDim2.new(1, 0, 0, 14)
-                            nameLbl.Position = UDim2.new(0, 0, 0, -18)
+                            nameLbl.Size = UDim2.fromOffset(200, 16)
+                            nameLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY - 18)
                             nameLbl.BackgroundTransparency = 1
                             nameLbl.Text = player.DisplayName .. " (@" .. player.Name .. ")"
                             nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-                            nameLbl.TextSize = 10
+                            nameLbl.TextSize = 11
                             nameLbl.Font = Enum.Font.GothamBold
-                            nameLbl.TextStrokeTransparency = 0.4
-                            nameLbl.Parent = bb
+                            nameLbl.TextStrokeTransparency = 0.2
+                            nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+                            nameLbl.Parent = espFolder
                         end
 
+                        -- 5. Distance Indicator
                         if Settings.ESPDistance then
                             local dist = math.floor((root.Position - cam.CFrame.Position).Magnitude)
                             local distLbl = Instance.new("TextLabel")
-                            distLbl.Size = UDim2.new(1, 0, 0, 14)
-                            distLbl.Position = UDim2.new(0, 0, 1, 4)
+                            distLbl.Size = UDim2.fromOffset(200, 14)
+                            distLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY + boxHeight + 2)
                             distLbl.BackgroundTransparency = 1
                             distLbl.Text = "[" .. tostring(dist) .. "m]"
                             distLbl.TextColor3 = Settings.Accent2
-                            distLbl.TextSize = 9
+                            distLbl.TextSize = 10
                             distLbl.Font = Enum.Font.GothamBold
-                            distLbl.TextStrokeTransparency = 0.4
-                            distLbl.Parent = bb
+                            distLbl.TextStrokeTransparency = 0.2
+                            distLbl.TextXAlignment = Enum.TextXAlignment.Center
+                            distLbl.Parent = espFolder
                         end
 
+                        -- 6. Health Bar
                         if Settings.ESPHealth then
                             local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                            local barHeight = boxHeight * healthPct
+
                             local healthBg = Instance.new("Frame")
-                            healthBg.Size = UDim2.new(0, 4, 1, 0)
-                            healthBg.Position = UDim2.new(0, -8, 0, 0)
+                            healthBg.Size = UDim2.fromOffset(4, boxHeight)
+                            healthBg.Position = UDim2.fromOffset(boxPosX - 7, boxPosY)
                             healthBg.BackgroundColor3 = Color3.fromRGB(20, 18, 25)
                             healthBg.BorderSizePixel = 0
-                            healthBg.Parent = bb
+                            healthBg.Parent = espFolder
                             Corner(healthBg, 2)
 
                             local healthFill = Instance.new("Frame")
-                            healthFill.Size = UDim2.new(1, 0, healthPct, 0)
-                            healthFill.Position = UDim2.new(0, 0, 1 - healthPct, 0)
+                            healthFill.Size = UDim2.fromOffset(4, barHeight)
+                            healthFill.Position = UDim2.fromOffset(boxPosX - 7, boxPosY + (boxHeight - barHeight))
                             healthFill.BackgroundColor3 = Settings.Red:Lerp(Settings.Green, healthPct)
                             healthFill.BorderSizePixel = 0
-                            healthFill.Parent = healthBg
+                            healthFill.Parent = espFolder
                             Corner(healthFill, 2)
                         end
                     end
@@ -518,7 +527,6 @@ local function applyWeaponModifiers()
     local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
     if not tool then return end
 
-    -- Loop through Tool modules / attributes to override recoil & spread values
     for _, item in ipairs(tool:GetDescendants()) do
         if item:IsA("ModuleScript") then
             local success, content = pcall(function() return require(item) end)
@@ -566,14 +574,20 @@ steppedConnection = RunService.Stepped:Connect(function()
         if humanoid then
             if Settings.EnableWalkSpeed then humanoid.WalkSpeed = Settings.WalkSpeed end
             if Settings.EnableJumpPower then humanoid.UseJumpPower = true; humanoid.JumpPower = Settings.JumpPower end
+            if Settings.EnableHipHeight then humanoid.HipHeight = Settings.CustomHipHeight end
             if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         end
 
+        -- Camera FOV Modification
+        local cam = getCamera()
+        if cam and Settings.EnableCustomFOV then
+            cam.FieldOfView = Settings.CustomFOV
+        end
+
         -- CFrame Fly System
         if Settings.FlyEnabled and root then
-            local cam = getCamera()
             local flyVec = Vector3.zero
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec = flyVec + cam.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec = flyVec - cam.CFrame.LookVector end
@@ -593,10 +607,15 @@ steppedConnection = RunService.Stepped:Connect(function()
             root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
         end
 
-        -- Noclip
-        if Settings.Noclip or Settings.FlyEnabled then
-            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
+        -- Ghost Mode / Transparency
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if Settings.Noclip or Settings.FlyEnabled then
+                    part.CanCollide = false
+                end
+                if Settings.GhostMode and part.Name ~= "HumanoidRootPart" then
+                    part.LocalTransparencyModifier = 0.6
+                end
             end
         end
     end
@@ -644,7 +663,7 @@ afkConnection = LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- Universal Gun Engine Hooking (SimpleCast)
+-- Universal Gun Engine Hooking
 pcall(function()
     SimpleCastModule = require(ReplicatedStorage:FindFirstChild("SimpleCast", true))
     if SimpleCastModule and SimpleCastModule.Fire then
@@ -713,7 +732,7 @@ local function ShowLoadingScreen(onComplete)
     Subtitle.Size = UDim2.new(1, 0, 0, 16)
     Subtitle.TextXAlignment = Enum.TextXAlignment.Center
 
-    local StatusLbl = Label(LoadingFrame, "Caricamento moduli universali in corso...", 10, Settings.SubText, Enum.Font.GothamMedium)
+    local StatusLbl = Label(LoadingFrame, "Caricamento moduli ed ESP...", 10, Settings.SubText, Enum.Font.GothamMedium)
     StatusLbl.Position = UDim2.fromOffset(0, 105)
     StatusLbl.Size = UDim2.new(1, 0, 0, 20)
     StatusLbl.TextXAlignment = Enum.TextXAlignment.Center
@@ -738,14 +757,14 @@ local function ShowLoadingScreen(onComplete)
             {pct = 0.2, text = "Inizializzazione grafica & UI..."},
             {pct = 0.45, text = "Caricamento Silent Aim & FOV Engine..."},
             {pct = 0.70, text = "Configurazione CFrame Fly & Movement..."},
-            {pct = 0.90, text = "Setup Weapon Modifiers & ESP..."},
+            {pct = 0.90, text = "Setup Player, Misc & Settings..."},
             {pct = 1.00, text = "Inizializzazione completata!"}
         }
 
         for _, step in ipairs(steps) do
             Tween(BarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
             StatusLbl.Text = step.text
-            task.wait(0.4)
+            task.wait(0.35)
         end
 
         task.wait(0.2)
@@ -853,7 +872,7 @@ local Search = Create("TextBox", {
     Position = UDim2.new(1,-285,0,20),
     BackgroundColor3 = Settings.Element,
     BorderSizePixel = 0,
-    PlaceholderText = "Search features...",
+    PlaceholderText = "Cerca funzioni...",
     PlaceholderColor3 = Settings.SubText,
     Text = "",
     TextColor3 = Settings.Text,
@@ -1006,7 +1025,7 @@ local function Keybind(name, defaultKey, callback)
     local Listening = false
     Button.MouseButton1Click:Connect(function()
         Listening = true
-        Button.Text = "PRESS KEY..."
+        Button.Text = "PREMI TASTO..."
     end)
 
     UserInputService.InputBegan:Connect(function(input)
@@ -1087,7 +1106,7 @@ local function RenderDashboard()
     local Grid = Create("Frame", { Size = UDim2.new(1,-5,0,110), BackgroundTransparency = 1 }, Content)
     Create("UIGridLayout", { CellSize = UDim2.new(0.32,0,0,100), CellPadding = UDim2.new(0.02,0,0,0) }, Grid)
 
-    local Cards = { {"FULL", "EXTENDED ENGINE"}, {"8", "MODULE CATEGORIES"}, {"V4", "UNRESTRICTED"} }
+    local Cards = { {"FULL", "EXTENDED ENGINE"}, {"8", "CATEGORIE MODULI"}, {"V4", "UNRESTRICTED"} }
     for _, data in ipairs(Cards) do
         local Card = Create("Frame", { BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Grid)
         Corner(Card, 8)
@@ -1183,17 +1202,48 @@ local function RenderWeapon()
     Toggle("Always Auto (Trasforma in Automatico)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
 end
 
+-- FULL PLAYER CATEGORY
 local function RenderPlayer()
     ClearContent()
-    Section("PLAYER & ANTI-AIM MECHANICS", "Rotazione desincronizzata e modificatori personaggio")
-    Toggle("Spinbot (Anti-Aim Rotation)", Settings.Spinbot, function(v) Settings.Spinbot = v end)
-    Slider("Spinbot Speed", 5, 100, Settings.SpinSpeed, " deg", function(v) Settings.SpinSpeed = v end)
+    Section("CAMERA & PERSPECTIVE MODIFIERS", "Modificatori del campo visivo e vista del giocatore")
+    Toggle("Abilita Custom FOV Camera", Settings.EnableCustomFOV, function(v)
+        Settings.EnableCustomFOV = v
+        if not v then
+            local cam = getCamera()
+            if cam then cam.FieldOfView = 70 end
+        end
+    end)
+    Slider("Camera Field of View", 30, 120, Settings.CustomFOV, " deg", function(v) Settings.CustomFOV = v end)
+
+    Section("CHARACTER SIZE & PHYSICS", "Altezza, visibilità e modifiche fisiche del personaggio")
+    Toggle("Abilita Custom HipHeight", Settings.EnableHipHeight, function(v)
+        Settings.EnableHipHeight = v
+        if not v and LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then humanoid.HipHeight = 2 end
+        end
+    end)
+    Slider("HipHeight Personaggio", 0, 50, Settings.CustomHipHeight, " studs", function(v) Settings.CustomHipHeight = v end)
+    Toggle("Ghost Mode (Semitrasparenza)", Settings.GhostMode, function(v) Settings.GhostMode = v end)
+
+    Section("ANTI-AIM & SPINBOT ENGINE", "Rotazione desincronizzata e protezione tracciamento")
+    Toggle("Spinbot Active", Settings.Spinbot, function(v) Settings.Spinbot = v end)
+    Slider("Spinbot Rotazione Velocity", 5, 120, Settings.SpinSpeed, " deg/s", function(v) Settings.SpinSpeed = v end)
+
+    Section("QUICK PLAYER ACTIONS", "Azioni rapide ed esecuzione comandi personaggio")
+    ActionButton("RESPAWN / RE-SET PERSONAGGIO", Settings.Red, function()
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then humanoid.Health = 0 end
+        end
+    end)
 end
 
+-- FULL MISC CATEGORY
 local function RenderMisc()
     ClearContent()
-    Section("SERVER & SESSION UTILITIES", "Gestione del server e riconnessione rapida")
-    ActionButton("SERVER HOP (Cambia Server)", Settings.Accent, function()
+    Section("SERVER & SESSION UTILITIES", "Gestione del server e connessione rapida")
+    ActionButton("SERVER HOP (Trova nuovo server)", Settings.Accent, function()
         local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data
         for _, s in ipairs(servers) do
             if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
@@ -1203,26 +1253,45 @@ local function RenderMisc()
         end
     end)
 
-    ActionButton("REJOIN SERVER (Riconnetti)", Settings.Panel, function()
+    ActionButton("REJOIN SERVER (Riconnetti al server attuale)", Settings.Panel, function()
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end)
 
-    Section("AUTOMATION & PERFORMANCE", "Prevenzione disconnessione e prestazioni")
+    ActionButton("COPIA JOB ID SERVER", Settings.Element, function()
+        if setclipboard then
+            setclipboard(tostring(game.JobId))
+        end
+    end)
+
+    Section("PERFORMANCE & AUTOMATION", "Prestazioni, anti-afk ed ottimizzazioni")
     Toggle("Anti-AFK Automagico", Settings.AntiAFK, function(v) Settings.AntiAFK = v end)
+    Toggle("FPS Boost / Low Graphics", Settings.FPSBoost, function(v)
+        Settings.FPSBoost = v
+        if v then
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.Material = Enum.Material.SmoothPlastic
+                elseif v:IsA("Decal") or v:IsA("Texture") then
+                    v:Destroy()
+                end
+            end
+        end
+    end)
 end
 
+-- FULL SETTINGS CATEGORY
 local function RenderSettings()
     ClearContent()
 
-    local StatusLbl = Label(Content, "Ready.", 9, Settings.SubText)
+    local StatusLbl = Label(Content, "Stato: In attesa di azioni...", 9, Settings.SubText)
     StatusLbl.Size = UDim2.new(1, -5, 0, 18)
 
-    Section("1. SAVE NEW CONFIGURATION", "Crea una nuova configurazione salvata")
+    Section("1. CRIA O AGGIORNA CONFIGURAZIONE", "Salva le attuali impostazioni in un file salvato")
 
     local SaveRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
     Corner(SaveRow, 6)
     
-    local NameLabel = Label(SaveRow, "Nome Config:", 10, Settings.Text)
+    local NameLabel = Label(SaveRow, "Nome Configurazione:", 10, Settings.Text)
     NameLabel.Position = UDim2.fromOffset(12, 0)
     NameLabel.Size = UDim2.new(0.4, 0, 1, 0)
 
@@ -1245,19 +1314,19 @@ local function RenderSettings()
 
     ActionButton("SALVA NUOVA CONFIGURAZIONE", Settings.Accent, function()
         if newConfigInputName == "" then
-            StatusLbl.Text = "Errore: Nome non valido!"
+            StatusLbl.Text = "Errore: Inserisci un nome valido!"
             StatusLbl.TextColor3 = Settings.Red
             return
         end
 
         if SaveConfig(newConfigInputName) then
-            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata!"
+            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata con successo!"
             StatusLbl.TextColor3 = Settings.Green
             SelectPage("Settings")
         end
     end)
 
-    Section("2. MANAGE CONFIGURATIONS", "Seleziona, carica o elimina configurazioni")
+    Section("2. GESTIONE FILE DI CONFIGURAZIONE", "Seleziona, carica, esegui all'avvio o elimina")
 
     local savedList = GetSavedConfigs()
     if #savedList > 0 and selectedDropdownConfig == "" then
@@ -1275,7 +1344,7 @@ local function RenderSettings()
         Size = UDim2.fromOffset(180, 28),
         Position = UDim2.new(1, -192, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
-        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config  ▼",
+        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config Found  ▼",
         TextColor3 = Settings.Accent2,
         TextSize = 10,
         Font = Enum.Font.GothamBold
@@ -1283,15 +1352,15 @@ local function RenderSettings()
     Corner(DropBtn, 5)
     Stroke(DropBtn, Settings.Border, 1)
 
-    ActionButton("LOAD CONFIG", Settings.Panel, function()
+    ActionButton("CARICA CONFIGURAZIONE SELEZIONATA", Settings.Panel, function()
         if selectedDropdownConfig ~= "" and LoadConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurata '" .. selectedDropdownConfig .. "' caricata!"
+            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' caricata!"
             StatusLbl.TextColor3 = Settings.Green
             SelectPage("Settings")
         end
     end)
 
-    ActionButton("SET AUTOLOAD", Settings.Element, function()
+    ActionButton("IMPOSTA AUTOLOAD ALL'AVVIO", Settings.Element, function()
         if selectedDropdownConfig ~= "" then
             SetAutoLoadConfig(selectedDropdownConfig)
             StatusLbl.Text = "AutoLoad impostato su '" .. selectedDropdownConfig .. "'!"
@@ -1300,19 +1369,25 @@ local function RenderSettings()
         end
     end)
 
-    ActionButton("DELETE CONFIG", Settings.Red, function()
+    ActionButton("ELIMINA CONFIGURAZIONE", Settings.Red, function()
         if selectedDropdownConfig ~= "" and DeleteConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurazione eliminata!"
+            StatusLbl.Text = "Configurazione eliminata con successo!"
             StatusLbl.TextColor3 = Settings.Green
             selectedDropdownConfig = ""
             SelectPage("Settings")
         end
     end)
 
-    Section("KEYBINDS & UNLOAD", "Scelte rapide ed esecuzione dello script")
-    Keybind("Menu Toggle Key", Settings.ToggleKey, function(key) Settings.ToggleKey = key end)
-    Keybind("Unload Script Key", Settings.UnloadKey, function(key) Settings.UnloadKey = key end)
-    ActionButton("UNLOAD SCRIPT", Settings.Red, UnloadScript)
+    Section("3. KEYBINDS E AMBIENTE", "Tasti rapidi e controllo dello script")
+    Keybind("Tasto Apertura/Chiusura Menu", Settings.ToggleKey, function(key) Settings.ToggleKey = key end)
+    Keybind("Tasto Unload Script Rapido", Settings.UnloadKey, function(key) Settings.UnloadKey = key end)
+    
+    Slider("Scala Dimensione Interfaccia (UI Scale)", 8, 15, math.floor(Settings.UIScale * 10), "x", function(v)
+        Settings.UIScale = v / 10
+        MainScale.Scale = Settings.UIScale
+    end)
+
+    ActionButton("UNLOAD & RIMUOVI SCRIPT DALLA MEMORIA", Settings.Red, UnloadScript)
 end
 
 SelectPage = function(name)
