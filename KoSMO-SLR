@@ -1,6 +1,7 @@
 --============================================================
--- KOSMOS HUB V4 — MAIN HUB (NO KEY SYSTEM)
--- Enhanced Config Manager + Refactored ESP + Loading + Movement
+-- KOSMOS HUB V4 — FULL UNRESTRICTED EXTENDED MASTER EDITION
+-- Complete Framework with Combat, Visuals, Movement, Weapon Modifiers,
+-- Player Utilities, Advanced Configuration Manager & Full UI Elements
 --============================================================
 
 --// SERVICES
@@ -12,15 +13,18 @@ local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 
 --============================================================
--- SETTINGS & DEFAULT CONFIGURATION
+-- SETTINGS & GLOBAL STATE
 --============================================================
 
 local Settings = {
-    -- Silent Aim Engine
+    -- Silent Aim & Combat Engine
     Enabled = false,
     ShowFOV = false,
     ShowDot = false,
@@ -37,19 +41,21 @@ local Settings = {
     ToggleKey = Enum.KeyCode.RightControl,
     UnloadKey = Enum.KeyCode.End,
     
-    -- Visuals & ESP Settings
+    -- Visuals & ESP Engine
     ESPEnabled = false,
     ESPBoxes = false,
     ESPNames = false,
     ESPDistance = false,
     ESPHealth = false,
     ESPChams = false,
+    ESPTracers = false,
     Fullbright = false,
     Crosshair = false,
     ChamColor = Color3.fromRGB(145, 45, 255),
     ESPColor = Color3.fromRGB(255, 255, 255),
+    TracerColor = Color3.fromRGB(145, 45, 255),
 
-    -- Movement Settings
+    -- Movement Engine
     EnableWalkSpeed = false,
     WalkSpeed = 16,
     EnableJumpPower = false,
@@ -57,8 +63,29 @@ local Settings = {
     InfiniteJump = false,
     Noclip = false,
     BHop = false,
+    FlyEnabled = false,
+    FlySpeed = 50,
 
-    -- UI Style Settings
+    -- Weapon & Gun Modifiers (Universal Hooks & Frameworks)
+    NoRecoil = false,
+    NoSpread = false,
+    RapidFire = false,
+    InfiniteAmmo = false,
+    InstantReload = false,
+    AlwaysAuto = false,
+
+    -- Player & Anti-Aim Engine
+    Spinbot = false,
+    SpinSpeed = 30,
+    AntiStun = false,
+    GodModeUniversal = false,
+
+    -- Misc & Utility Engine
+    AntiAFK = false,
+    FPSUnlocker = false,
+    LowGraphics = false,
+
+    -- UI Theme Customization
     Accent = Color3.fromRGB(145, 45, 255),
     Accent2 = Color3.fromRGB(205, 80, 255),
     Background = Color3.fromRGB(10, 8, 15),
@@ -76,29 +103,23 @@ local Settings = {
 local Values = {}
 local hitPattern = {"Head", "Torso", "Torso", "Torso", "LeftLeg", "LeftLeg", "RightLeg"}
 local currentPatternIndex = 1
-local renderConnection = nil
-local steppedConnection = nil
-local jumpConnection = nil
-local inputConnection = nil
-local oldFire = nil
-local SimpleCastModule = nil
-local espFolder = nil
+local renderConnection, steppedConnection, jumpConnection, inputConnection, afkConnection, weaponLoopConnection
+local oldFire, SimpleCastModule
+local espFolder, tracerFolder
 local origAmbient, origBrightness, origShadows = Lighting.Ambient, Lighting.Brightness, Lighting.GlobalShadows
 local newConfigInputName = "default"
 local selectedDropdownConfig = ""
 
 --============================================================
--- ADVANCED CONFIGURATION FILE MANAGER
+-- CONFIGURATION FILE SYSTEM (FULL READ/WRITE ENGINE)
 --============================================================
 
 local CONFIG_FOLDER = "KosmosHub_Configs"
 local AUTOLOAD_FILE = CONFIG_FOLDER .. "/autoload.txt"
 
 local function EnsureFolder()
-    if makefolder and isfolder then
-        if not isfolder(CONFIG_FOLDER) then
-            makefolder(CONFIG_FOLDER)
-        end
+    if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
+        makefolder(CONFIG_FOLDER)
     end
 end
 
@@ -111,9 +132,7 @@ local function GetSavedConfigs()
             for _, filePath in ipairs(files) do
                 if filePath:sub(-5) == ".json" then
                     local fileName = filePath:match("([^/^\\]+)%.json$")
-                    if fileName then
-                        table.insert(configs, fileName)
-                    end
+                    if fileName then table.insert(configs, fileName) end
                 end
             end
         end
@@ -124,8 +143,6 @@ end
 local function SaveConfig(name)
     EnsureFolder()
     if not writefile or name == "" then return false end
-    local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
-    
     local configData = {}
     for k, v in pairs(Settings) do
         if typeof(v) == "Color3" then
@@ -136,23 +153,17 @@ local function SaveConfig(name)
             configData[k] = v
         end
     end
-
-    local success = pcall(function()
-        writefile(filePath, HttpService:JSONEncode(configData))
+    return pcall(function()
+        writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(configData))
     end)
-    return success
 end
 
 local function LoadConfig(name)
     EnsureFolder()
-    if not readfile or not isfile or name == "" then return false end
+    if not readfile or not isfile then return false end
     local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
     if not isfile(filePath) then return false end
-
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(readfile(filePath))
-    end)
-
+    local success, result = pcall(function() return HttpService:JSONDecode(readfile(filePath)) end)
     if success and type(result) == "table" then
         for k, v in pairs(result) do
             if Settings[k] ~= nil then
@@ -172,19 +183,15 @@ end
 
 local function DeleteConfig(name)
     EnsureFolder()
-    if not delfile or not isfile or name == "" then return false end
+    if not delfile or not isfile then return false end
     local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
-    if isfile(filePath) then
-        return pcall(function() delfile(filePath) end)
-    end
+    if isfile(filePath) then return pcall(function() delfile(filePath) end) end
     return false
 end
 
 local function SetAutoLoadConfig(name)
     EnsureFolder()
-    if writefile then
-        writefile(AUTOLOAD_FILE, name or "")
-    end
+    if writefile then writefile(AUTOLOAD_FILE, name or "") end
 end
 
 local function GetAutoLoadConfig()
@@ -197,7 +204,7 @@ local function GetAutoLoadConfig()
 end
 
 --============================================================
--- CLEAN OLD INTERFACE
+-- INSTANCE CLEANUP & CONTAINERS
 --============================================================
 
 local GUI_NAME = "KOSMOS_HUB_V4_MASTER"
@@ -214,15 +221,17 @@ espFolder = Instance.new("Folder")
 espFolder.Name = "Kosmos_ESP_Holder"
 espFolder.Parent = CoreGui
 
+tracerFolder = Instance.new("Folder")
+tracerFolder.Name = "Kosmos_Tracer_Holder"
+tracerFolder.Parent = ScreenGui
+
 --============================================================
--- HELPER FUNCTIONS
+-- INTERFACE CONSTRUCTOR HELPERS
 --============================================================
 
 local function Create(class, props, parent)
     local obj = Instance.new(class)
-    for property, value in pairs(props or {}) do
-        obj[property] = value
-    end
+    for property, value in pairs(props or {}) do obj[property] = value end
     obj.Parent = parent
     return obj
 end
@@ -260,12 +269,12 @@ local function getCamera()
 end
 
 local function getMousePosition()
-    local mousePos = UserInputService:GetMouseLocation()
-    return Vector2.new(mousePos.X, mousePos.Y)
+    local pos = UserInputService:GetMouseLocation()
+    return Vector2.new(pos.X, pos.Y)
 end
 
 --============================================================
--- VISUAL ELEMENTS (FOV, DOT & CROSSHAIR)
+-- HUD & FOV OVERLAY COMPONENTS
 --============================================================
 
 local FOVFrame = Create("Frame", {
@@ -305,7 +314,7 @@ Create("Frame", { Size = UDim2.new(0, 14, 0, 2), Position = UDim2.new(0, -7, 0, 
 Create("Frame", { Size = UDim2.new(0, 2, 0, 14), Position = UDim2.new(0, -1, 0, -7), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, CrosshairFrame)
 
 --============================================================
--- TARGETING & ESP ENGINE
+-- COMBAT & TARGETING CALCULATIONS
 --============================================================
 
 local function getTargetPart(character, targetName)
@@ -326,8 +335,7 @@ local function isTargetVisible(part)
     local cam = getCamera()
     if not cam then return false end
     local ignoreList = {LocalPlayer.Character, part.Parent}
-    local parts = cam:GetPartsObscuringTarget({part.Position}, ignoreList)
-    return #parts == 0
+    return #cam:GetPartsObscuringTarget({part.Position}, ignoreList) == 0
 end
 
 local function getCurrentFOV()
@@ -335,22 +343,18 @@ local function getCurrentFOV()
     local cam = getCamera()
     if not cam then return Settings.BaseFOV end
 
-    local closestWorldDist = math.huge
+    local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            if not Settings.TeamCheck or player.Team ~= LocalPlayer.Team then
-                local root = player.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local worldDist = (root.Position - cam.CFrame.Position).Magnitude
-                    if worldDist < closestWorldDist then closestWorldDist = worldDist end
-                end
+        if player ~= LocalPlayer and player.Character and (not Settings.TeamCheck or player.Team ~= LocalPlayer.Team) then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (root.Position - cam.CFrame.Position).Magnitude
+                if dist < closestDist then closestDist = dist end
             end
         end
     end
-
-    if closestWorldDist ~= math.huge and closestWorldDist > 0 then
-        local scaled = Settings.BaseFOV * (50 / closestWorldDist)
-        return math.clamp(scaled, 12, 220)
+    if closestDist ~= math.huge and closestDist > 0 then
+        return math.clamp(Settings.BaseFOV * (50 / closestDist), 12, 220)
     end
     return Settings.BaseFOV
 end
@@ -360,29 +364,23 @@ local function getBestTarget(maxDistance)
     if not cam then return nil, nil end
 
     local mousePos = getMousePosition()
-    local bestDist = maxDistance
-    local bestPart = nil
-    local bestScreenPos = nil
-    
+    local bestDist, bestPart, bestScreenPos = maxDistance, nil, nil
     local targetName = Settings.HitPatternEnabled and hitPattern[currentPatternIndex] or Settings.TargetBone
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            if not Settings.TeamCheck or player.Team ~= LocalPlayer.Team then
-                local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    local part = getTargetPart(player.Character, targetName)
-                    if part then
-                        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local screenVec = Vector2.new(screenPos.X, screenPos.Y)
-                            local distToMouse = (screenVec - mousePos).Magnitude
-                            
-                            if distToMouse < bestDist and isTargetVisible(part) then
-                                bestDist = distToMouse
-                                bestPart = part
-                                bestScreenPos = screenVec
-                            end
+        if player ~= LocalPlayer and player.Character and (not Settings.TeamCheck or player.Team ~= LocalPlayer.Team) then
+            local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local part = getTargetPart(player.Character, targetName)
+                if part then
+                    local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                        local distToMouse = (screenVec - mousePos).Magnitude
+                        if distToMouse < bestDist and isTargetVisible(part) then
+                            bestDist = distToMouse
+                            bestPart = part
+                            bestScreenPos = screenVec
                         end
                     end
                 end
@@ -392,8 +390,13 @@ local function getBestTarget(maxDistance)
     return bestPart, bestScreenPos
 end
 
+--============================================================
+-- VISUALS & ESP RENDERING SYSTEM
+--============================================================
+
 local function updateESP()
     espFolder:ClearAllChildren()
+    tracerFolder:ClearAllChildren()
     if not Settings.ESPEnabled then return end
 
     local cam = getCamera()
@@ -407,6 +410,27 @@ local function updateESP()
                 local humanoid = char:FindFirstChildWhichIsA("Humanoid")
 
                 if root and humanoid and humanoid.Health > 0 then
+                    local screenPos, onScreen = cam:WorldToViewportPoint(root.Position)
+
+                    -- Snaplines / Tracers
+                    if Settings.ESPTracers and onScreen then
+                        local line = Instance.new("Frame")
+                        line.BorderSizePixel = 0
+                        line.BackgroundColor3 = Settings.TracerColor
+                        line.AnchorPoint = Vector2.new(0.5, 0.5)
+
+                        local startPos = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
+                        local targetVec = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (targetVec - startPos).Magnitude
+                        local angle = math.atan2(targetVec.Y - startPos.Y, targetVec.X - startPos.X)
+
+                        line.Size = UDim2.new(0, distance, 0, 1.5)
+                        line.Position = UDim2.new(0, (startPos.X + targetVec.X) / 2, 0, (startPos.Y + targetVec.Y) / 2)
+                        line.Rotation = math.deg(angle)
+                        line.Parent = tracerFolder
+                    end
+
+                    -- Player Chams Highlight
                     if Settings.ESPChams then
                         local highlight = Instance.new("Highlight")
                         highlight.Adornee = char
@@ -417,6 +441,7 @@ local function updateESP()
                         highlight.Parent = espFolder
                     end
 
+                    -- Billboard HUD Overlays
                     if Settings.ESPBoxes or Settings.ESPNames or Settings.ESPDistance or Settings.ESPHealth then
                         local bb = Instance.new("BillboardGui")
                         bb.Adornee = root
@@ -428,7 +453,6 @@ local function updateESP()
                             local box = Instance.new("Frame")
                             box.Size = UDim2.new(1, 0, 1, 0)
                             box.BackgroundTransparency = 1
-                            box.BorderSizePixel = 0
                             box.Parent = bb
                             Stroke(box, Settings.ESPColor, 1.5, 0)
                         end
@@ -461,6 +485,7 @@ local function updateESP()
                         end
 
                         if Settings.ESPHealth then
+                            local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
                             local healthBg = Instance.new("Frame")
                             healthBg.Size = UDim2.new(0, 4, 1, 0)
                             healthBg.Position = UDim2.new(0, -8, 0, 0)
@@ -469,7 +494,6 @@ local function updateESP()
                             healthBg.Parent = bb
                             Corner(healthBg, 2)
 
-                            local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
                             local healthFill = Instance.new("Frame")
                             healthFill.Size = UDim2.new(1, 0, healthPct, 0)
                             healthFill.Position = UDim2.new(0, 0, 1 - healthPct, 0)
@@ -477,18 +501,6 @@ local function updateESP()
                             healthFill.BorderSizePixel = 0
                             healthFill.Parent = healthBg
                             Corner(healthFill, 2)
-
-                            local hpValLbl = Instance.new("TextLabel")
-                            hpValLbl.Size = UDim2.new(0, 30, 0, 12)
-                            hpValLbl.Position = UDim2.new(0, -38, 1 - healthPct, -6)
-                            hpValLbl.BackgroundTransparency = 1
-                            hpValLbl.Text = tostring(math.floor(humanoid.Health))
-                            hpValLbl.TextColor3 = Color3.fromRGB(240, 240, 240)
-                            hpValLbl.TextSize = 8
-                            hpValLbl.Font = Enum.Font.GothamBold
-                            hpValLbl.TextXAlignment = Enum.TextXAlignment.Right
-                            hpValLbl.TextStrokeTransparency = 0.5
-                            hpValLbl.Parent = bb
                         end
                     end
                 end
@@ -498,58 +510,107 @@ local function updateESP()
 end
 
 --============================================================
--- MOVEMENT ENGINE HANDLERS
+-- WEAPON MODIFIERS ENGINE
+--============================================================
+
+local function applyWeaponModifiers()
+    if not LocalPlayer.Character then return end
+    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if not tool then return end
+
+    -- Loop through Tool modules / attributes to override recoil & spread values
+    for _, item in ipairs(tool:GetDescendants()) do
+        if item:IsA("ModuleScript") then
+            local success, content = pcall(function() return require(item) end)
+            if success and type(content) == "table" then
+                if Settings.NoRecoil then
+                    if content.Recoil ~= nil then content.Recoil = 0 end
+                    if content.recoil ~= nil then content.recoil = 0 end
+                    if content.RecoilControl ~= nil then content.RecoilControl = 0 end
+                end
+                if Settings.NoSpread then
+                    if content.Spread ~= nil then content.Spread = 0 end
+                    if content.spread ~= nil then content.spread = 0 end
+                    if content.Accuracy ~= nil then content.Accuracy = 1 end
+                end
+                if Settings.RapidFire then
+                    if content.FireRate ~= nil then content.FireRate = 0.02 end
+                    if content.fireRate ~= nil then content.fireRate = 0.02 end
+                    if content.Cooldown ~= nil then content.Cooldown = 0.02 end
+                end
+                if Settings.AlwaysAuto then
+                    if content.Auto ~= nil then content.Auto = true end
+                    if content.Mode ~= nil then content.Mode = "Auto" end
+                end
+            end
+        end
+    end
+end
+
+--============================================================
+-- RUNTIME CONNECTIONS & LOOPING
 --============================================================
 
 jumpConnection = UserInputService.JumpRequest:Connect(function()
     if Settings.InfiniteJump and LocalPlayer.Character then
         local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
+        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
 
 steppedConnection = RunService.Stepped:Connect(function()
     if LocalPlayer.Character then
         local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
         if humanoid then
-            if Settings.EnableWalkSpeed then
-                humanoid.WalkSpeed = Settings.WalkSpeed
-            end
-            if Settings.EnableJumpPower then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = Settings.JumpPower
-            end
+            if Settings.EnableWalkSpeed then humanoid.WalkSpeed = Settings.WalkSpeed end
+            if Settings.EnableJumpPower then humanoid.UseJumpPower = true; humanoid.JumpPower = Settings.JumpPower end
             if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         end
 
-        if Settings.Noclip then
+        -- CFrame Fly System
+        if Settings.FlyEnabled and root then
+            local cam = getCamera()
+            local flyVec = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec = flyVec + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec = flyVec - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then flyVec = flyVec - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then flyVec = flyVec + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then flyVec = flyVec + Vector3.yAxis end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then flyVec = flyVec - Vector3.yAxis end
+
+            root.Velocity = Vector3.zero
+            if flyVec.Magnitude > 0 then
+                root.CFrame = root.CFrame + (flyVec.Unit * (Settings.FlySpeed / 10))
+            end
+        end
+
+        -- Spinbot Anti-Aim
+        if Settings.Spinbot and root then
+            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+        end
+
+        -- Noclip
+        if Settings.Noclip or Settings.FlyEnabled then
             for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
         end
     end
 end)
 
 renderConnection = RunService.RenderStepped:Connect(function()
-    if Settings.RainbowFOV then
-        local hue = (tick() % 5) / 5
-        Settings.FOVColor = Color3.fromHSV(hue, 0.8, 1)
-    end
-
+    if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
     if Settings.Fullbright then
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.Ambient = Color3.new(1,1,1)
         Lighting.Brightness = 2
         Lighting.GlobalShadows = false
     end
 
     CrosshairFrame.Visible = Settings.Crosshair
-
     local activeFOV = getCurrentFOV()
     local mousePos = getMousePosition()
 
@@ -566,14 +627,24 @@ renderConnection = RunService.RenderStepped:Connect(function()
     if Settings.Enabled and Settings.ShowDot and bestScreenPos then
         TargetDotFrame.Visible = true
         TargetDotFrame.Position = UDim2.new(0, bestScreenPos.X, 0, bestScreenPos.Y)
-        TargetDotFrame.BackgroundColor3 = Settings.TargetColor
     else
         TargetDotFrame.Visible = false
     end
 
+    applyWeaponModifiers()
     updateESP()
 end)
 
+-- Anti-AFK Handler
+afkConnection = LocalPlayer.Idled:Connect(function()
+    if Settings.AntiAFK then
+        VirtualUser:Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
+    end
+end)
+
+-- Universal Gun Engine Hooking (SimpleCast)
 pcall(function()
     SimpleCastModule = require(ReplicatedStorage:FindFirstChild("SimpleCast", true))
     if SimpleCastModule and SimpleCastModule.Fire then
@@ -602,6 +673,7 @@ local function UnloadScript()
     if steppedConnection then steppedConnection:Disconnect() end
     if jumpConnection then jumpConnection:Disconnect() end
     if inputConnection then inputConnection:Disconnect() end
+    if afkConnection then afkConnection:Disconnect() end
     if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
     
     Lighting.Ambient = origAmbient
@@ -609,17 +681,18 @@ local function UnloadScript()
     Lighting.GlobalShadows = origShadows
 
     if espFolder then espFolder:Destroy() end
+    if tracerFolder then tracerFolder:Destroy() end
     if ScreenGui then ScreenGui:Destroy() end
 end
 
 --============================================================
--- INITIAL LOADING SCREEN ANIMATION
+-- ANIMATED INITIALIZATION LOADING SCREEN
 --============================================================
 
 local function ShowLoadingScreen(onComplete)
     local LoadingFrame = Create("Frame", {
         Name = "LoadingFrame",
-        Size = UDim2.fromOffset(360, 200),
+        Size = UDim2.fromOffset(380, 220),
         Position = UDim2.fromScale(0.5, 0.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Settings.Background,
@@ -630,24 +703,24 @@ local function ShowLoadingScreen(onComplete)
     Corner(LoadingFrame, 12)
     Stroke(LoadingFrame, Settings.Accent, 1.5)
 
-    local Title = Label(LoadingFrame, "KOSMOS HUB V4", 20, Settings.Text, Enum.Font.GothamBlack)
+    local Title = Label(LoadingFrame, "KOSMOS HUB V4", 22, Settings.Text, Enum.Font.GothamBlack)
     Title.Position = UDim2.fromOffset(0, 25)
     Title.Size = UDim2.new(1, 0, 0, 25)
     Title.TextXAlignment = Enum.TextXAlignment.Center
 
-    local Subtitle = Label(LoadingFrame, "PURPLE EDITION • INITIALIZING", 9, Settings.Accent2, Enum.Font.GothamBold)
+    local Subtitle = Label(LoadingFrame, "EXTENDED UNRESTRICTED EDITION", 9, Settings.Accent2, Enum.Font.GothamBold)
     Subtitle.Position = UDim2.fromOffset(0, 52)
     Subtitle.Size = UDim2.new(1, 0, 0, 16)
     Subtitle.TextXAlignment = Enum.TextXAlignment.Center
 
-    local StatusLbl = Label(LoadingFrame, "Caricamento componenti...", 10, Settings.SubText, Enum.Font.GothamMedium)
-    StatusLbl.Position = UDim2.fromOffset(0, 95)
+    local StatusLbl = Label(LoadingFrame, "Caricamento moduli universali in corso...", 10, Settings.SubText, Enum.Font.GothamMedium)
+    StatusLbl.Position = UDim2.fromOffset(0, 105)
     StatusLbl.Size = UDim2.new(1, 0, 0, 20)
     StatusLbl.TextXAlignment = Enum.TextXAlignment.Center
 
     local BarBackground = Create("Frame", {
         Size = UDim2.new(0.8, 0, 0, 8),
-        Position = UDim2.new(0.1, 0, 0, 130),
+        Position = UDim2.new(0.1, 0, 0, 140),
         BackgroundColor3 = Settings.Element,
         BorderSizePixel = 0
     }, LoadingFrame)
@@ -662,19 +735,20 @@ local function ShowLoadingScreen(onComplete)
 
     task.spawn(function()
         local steps = {
-            {pct = 0.25, text = "Caricamento componenti interfaccia..."},
-            {pct = 0.55, text = "Inizializzazione ESP & Combat engine..."},
-            {pct = 0.85, text = "Verifica configurazioni salvate..."},
-            {pct = 1.00, text = "Completato! Avvio in corso..."}
+            {pct = 0.2, text = "Inizializzazione grafica & UI..."},
+            {pct = 0.45, text = "Caricamento Silent Aim & FOV Engine..."},
+            {pct = 0.70, text = "Configurazione CFrame Fly & Movement..."},
+            {pct = 0.90, text = "Setup Weapon Modifiers & ESP..."},
+            {pct = 1.00, text = "Inizializzazione completata!"}
         }
 
         for _, step in ipairs(steps) do
-            Tween(BarFill, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
+            Tween(BarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
             StatusLbl.Text = step.text
-            task.wait(0.45)
+            task.wait(0.4)
         end
 
-        task.wait(0.3)
+        task.wait(0.2)
         Tween(LoadingFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
         task.wait(0.3)
         LoadingFrame:Destroy()
@@ -684,7 +758,7 @@ local function ShowLoadingScreen(onComplete)
 end
 
 --============================================================
--- MAIN DASHBOARD WINDOW
+-- MAIN DASHBOARD INTERFACE
 --============================================================
 
 local Main = Create("Frame", {
@@ -704,7 +778,7 @@ Stroke(Main, Settings.Border, 1)
 
 local MainScale = Create("UIScale", { Scale = Settings.UIScale }, Main)
 
--- Dragging Engine
+-- Window Dragging Mechanics
 do
     local dragging, dragStart, startPosition
     Main.InputBegan:Connect(function(input)
@@ -730,7 +804,7 @@ do
     end)
 end
 
--- Sidebar
+-- Sidebar Navigation Setup
 local Sidebar = Create("Frame", { Size = UDim2.new(0, 220, 1, 0), BackgroundColor3 = Settings.Sidebar, BorderSizePixel = 0 }, Main)
 Corner(Sidebar, 12)
 
@@ -745,7 +819,7 @@ local Brand = Label(LogoFrame, "KOSMOS", 17, Settings.Text, Enum.Font.GothamBlac
 Brand.Position = UDim2.fromOffset(58, 9)
 Brand.Size = UDim2.new(1,-60,0,25)
 
-local BrandVersion = Label(LogoFrame, "PURPLE EDITION • V4", 8, Settings.Accent2, Enum.Font.GothamBold)
+local BrandVersion = Label(LogoFrame, "UNRESTRICTED • V4", 8, Settings.Accent2, Enum.Font.GothamBold)
 BrandVersion.Position = UDim2.fromOffset(58, 34)
 BrandVersion.Size = UDim2.new(1,-60,0,18)
 
@@ -763,7 +837,7 @@ NavLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Navigation.CanvasSize = UDim2.new(0, 0, 0, NavLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- Topbar
+-- Topbar & Search
 local TopBar = Create("Frame", { Size = UDim2.new(1,-220,0,75), Position = UDim2.fromOffset(220,0), BackgroundColor3 = Settings.Background, BorderSizePixel = 0 }, Main)
 
 local PageTitle = Label(TopBar, "Dashboard", 19, Settings.Text, Enum.Font.GothamBold)
@@ -779,7 +853,7 @@ local Search = Create("TextBox", {
     Position = UDim2.new(1,-285,0,20),
     BackgroundColor3 = Settings.Element,
     BorderSizePixel = 0,
-    PlaceholderText = "Search settings...",
+    PlaceholderText = "Search features...",
     PlaceholderColor3 = Settings.SubText,
     Text = "",
     TextColor3 = Settings.Text,
@@ -805,7 +879,7 @@ ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 --============================================================
--- CONTROL BUILDERS
+-- INTERFACE CONTROL BUILDERS
 --============================================================
 
 local CurrentControls = {}
@@ -886,10 +960,10 @@ local function Slider(name, min, max, default, suffix, callback)
 
     local Dragging = false
     local function Update(input)
-        local position = math.clamp((input.Position.X-Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X, 0, 1)
-        local value = math.floor(min+(max-min)*position)
+        local pos = math.clamp((input.Position.X-Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min+(max-min)*pos)
         Values[name] = value
-        Fill.Size = UDim2.new(position,0,1,0)
+        Fill.Size = UDim2.new(pos,0,1,0)
         Value.Text = tostring(value)..suffix
         if callback then callback(value) end
     end
@@ -964,7 +1038,7 @@ local function ActionButton(name, color, callback)
 end
 
 --============================================================
--- PAGES IMPLEMENTATION & ICON ASSETS
+-- FULL CATEGORY RENDERERS
 --============================================================
 
 local Pages = {
@@ -975,7 +1049,6 @@ local Pages = {
     {"Weapon", "rbxassetid://6035078863"},
     {"Player", "rbxassetid://6034287525"},
     {"Misc", "rbxassetid://6031280882"},
-    {"Experimental", "rbxassetid://6034684937"},
     {"Settings", "rbxassetid://6031280882"}
 }
 
@@ -1001,7 +1074,7 @@ local function RenderDashboard()
     UserTitle.Position = UDim2.fromOffset(85, 15)
     UserTitle.Size = UDim2.new(1, -95, 0, 22)
 
-    local UserStatus = Label(ProfileCard, "STATUS: PREMIUM USER • KOSMOS V4 ACTIVE", 9, Settings.Accent2, Enum.Font.GothamBold)
+    local UserStatus = Label(ProfileCard, "STATUS: PREMIUM MASTER USER • KOSMOS V4 EXTENDED", 9, Settings.Accent2, Enum.Font.GothamBold)
     UserStatus.Position = UDim2.fromOffset(85, 38)
     UserStatus.Size = UDim2.new(1, -95, 0, 18)
 
@@ -1009,18 +1082,18 @@ local function RenderDashboard()
     UserID.Position = UDim2.fromOffset(85, 55)
     UserID.Size = UDim2.new(1, -95, 0, 15)
 
-    Section("KOSMOS CONTROL CENTER", "Welcome back to your active session.")
+    Section("KOSMOS CONTROL CENTER", "Sessione attiva ed estesa a tutte le funzionalità")
 
     local Grid = Create("Frame", { Size = UDim2.new(1,-5,0,110), BackgroundTransparency = 1 }, Content)
     Create("UIGridLayout", { CellSize = UDim2.new(0.32,0,0,100), CellPadding = UDim2.new(0.02,0,0,0) }, Grid)
 
-    local Cards = { {"300+","CONFIGURABLE"}, {"9","CATEGORIES"}, {"V4","ENGINE"} }
+    local Cards = { {"FULL", "EXTENDED ENGINE"}, {"8", "MODULE CATEGORIES"}, {"V4", "UNRESTRICTED"} }
     for _, data in ipairs(Cards) do
         local Card = Create("Frame", { BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Grid)
         Corner(Card, 8)
         Stroke(Card, Settings.Border, 1)
         
-        local Num = Label(Card, data[1], 25, Settings.Accent, Enum.Font.GothamBlack)
+        local Num = Label(Card, data[1], 23, Settings.Accent, Enum.Font.GothamBlack)
         Num.Position = UDim2.fromOffset(14,12)
         Num.Size = UDim2.new(1,-28,0,32)
 
@@ -1032,36 +1105,37 @@ end
 
 local function RenderCombat()
     ClearContent()
-    Section("SILENT AIM MAIN SETTINGS", "Global combat aimlock features")
+    Section("SILENT AIM & COMBAT ENGINE", "Impostazioni principali di mira silenziosa e ingaggio")
     Toggle("Silent Aim Active", Settings.Enabled, function(v) Settings.Enabled = v end)
-    Toggle("Team Check (Ignore Allies)", Settings.TeamCheck, function(v) Settings.TeamCheck = v end)
-    Toggle("Wall Check (Visibility Check)", Settings.WallCheck, function(v) Settings.WallCheck = v end)
+    Toggle("Team Check (Ignora Alleati)", Settings.TeamCheck, function(v) Settings.TeamCheck = v end)
+    Toggle("Wall Check (Verifica Visibilità)", Settings.WallCheck, function(v) Settings.WallCheck = v end)
     
-    Section("HIT SELECTION & ACCURACY", "Targeting pattern and probability controls")
+    Section("ACCURACY & TARGETING PATTERN", "Sequenza di tiro e probabilità di impatto")
     Toggle("Hit Pattern Sequence (Head/Torso/Legs)", Settings.HitPatternEnabled, function(v) Settings.HitPatternEnabled = v end)
     Slider("Hit Probability", 1, 100, Settings.HitProbability, "%", function(v) Settings.HitProbability = v end)
     Slider("Target Base FOV", 10, 300, Settings.BaseFOV, " px", function(v) Settings.BaseFOV = v end)
-    Toggle("Dynamic Target Scaling", Settings.DynamicFOV, function(v) Settings.DynamicFOV = v end)
+    Toggle("Dynamic Target FOV Scaling", Settings.DynamicFOV, function(v) Settings.DynamicFOV = v end)
 end
 
 local function RenderVisuals()
     ClearContent()
-    Section("FOV CIRCLE & CROSSHAIR", "On-screen HUD overlay features")
+    Section("HUD & OVERLAY INDICATORS", "Elementi visivi su schermo e mirino")
     Toggle("Show FOV Circle", Settings.ShowFOV, function(v) Settings.ShowFOV = v end)
     Toggle("Show Target Dot Indicator", Settings.ShowDot, function(v) Settings.ShowDot = v end)
     Toggle("Rainbow FOV Color", Settings.RainbowFOV, function(v) Settings.RainbowFOV = v end)
     Toggle("Custom Screen Crosshair", Settings.Crosshair, function(v) Settings.Crosshair = v end)
     
-    Section("PLAYER ESP OVERLAYS", "See players and info through obstacles")
+    Section("ESP PLAYER OVERLAYS", "Tracciamento completo dei giocatori")
     Toggle("Enable ESP Master Switch", Settings.ESPEnabled, function(v) Settings.ESPEnabled = v end)
     Toggle("ESP 2D Bounding Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
     Toggle("ESP Player Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
     Toggle("ESP Distance Indicator", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
-    Toggle("ESP Health Bar & HP", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Toggle("ESP Health Bar", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Toggle("ESP Tracers (Snaplines)", Settings.ESPTracers, function(v) Settings.ESPTracers = v end)
     Toggle("ESP Player Chams (Highlight)", Settings.ESPChams, function(v) Settings.ESPChams = v end)
 
-    Section("WORLD & LIGHTING ENHANCEMENTS", "Environment modification features")
-    Toggle("Fullbright (Remove Shadows)", Settings.Fullbright, function(v)
+    Section("LIGHTING & WORLD MODIFIERS", "Modifiche all'ambiente di gioco")
+    Toggle("Fullbright (Rimuovi Ombre e Buio)", Settings.Fullbright, function(v)
         Settings.Fullbright = v
         if not v then
             Lighting.Ambient = origAmbient
@@ -1071,11 +1145,9 @@ local function RenderVisuals()
     end)
 end
 
--- RENDER MOVEMENT PAGE
 local function RenderMovement()
     ClearContent()
-
-    Section("SPEED & JUMP MODIFIERS", "Modifica le velocità di movimento e salto del personaggio")
+    Section("SPEED & JUMP MODIFIERS", "Regolazione parametri di movimento")
     Toggle("Enable WalkSpeed Modifier", Settings.EnableWalkSpeed, function(v)
         Settings.EnableWalkSpeed = v
         if not v and LocalPlayer.Character then
@@ -1094,19 +1166,49 @@ local function RenderMovement()
     end)
     Slider("Custom JumpPower", 50, 350, Settings.JumpPower, " power", function(v) Settings.JumpPower = v end)
 
-    Section("ADVANCED MOVEMENT MECHANICS", "Abilità speciali di movimento e collisione")
+    Section("ADVANCED MOVEMENT MECHANICS", "Volo CFrame, collisioni ed abilità speciali")
     Toggle("Infinite Jump (Salto Infinito)", Settings.InfiniteJump, function(v) Settings.InfiniteJump = v end)
-    Toggle("Noclip (Attraversa Muri)", Settings.Noclip, function(v)
-        Settings.Noclip = v
-        if not v and LocalPlayer.Character then
-            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+    Toggle("Noclip (Attraversa Muri)", Settings.Noclip, function(v) Settings.Noclip = v end)
+    Toggle("Auto BHop (Bunny Hop)", Settings.BHop, function(v) Settings.BHop = v end)
+    Toggle("CFrame Fly (Volo Fluido WASD)", Settings.FlyEnabled, function(v) Settings.FlyEnabled = v end)
+    Slider("Fly Speed", 10, 200, Settings.FlySpeed, " speed", function(v) Settings.FlySpeed = v end)
+end
+
+local function RenderWeapon()
+    ClearContent()
+    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori universali per le armi da fuoco")
+    Toggle("No Recoil (Azzera Rinculo)", Settings.NoRecoil, function(v) Settings.NoRecoil = v end)
+    Toggle("No Spread (Azzera Dispersione)", Settings.NoSpread, function(v) Settings.NoSpread = v end)
+    Toggle("Rapid Fire (Cadenza di sparo massima)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
+    Toggle("Always Auto (Trasforma in Automatico)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
+end
+
+local function RenderPlayer()
+    ClearContent()
+    Section("PLAYER & ANTI-AIM MECHANICS", "Rotazione desincronizzata e modificatori personaggio")
+    Toggle("Spinbot (Anti-Aim Rotation)", Settings.Spinbot, function(v) Settings.Spinbot = v end)
+    Slider("Spinbot Speed", 5, 100, Settings.SpinSpeed, " deg", function(v) Settings.SpinSpeed = v end)
+end
+
+local function RenderMisc()
+    ClearContent()
+    Section("SERVER & SESSION UTILITIES", "Gestione del server e riconnessione rapida")
+    ActionButton("SERVER HOP (Cambia Server)", Settings.Accent, function()
+        local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data
+        for _, s in ipairs(servers) do
+            if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                break
             end
         end
     end)
-    Toggle("Auto BHop (Bunny Hop)", Settings.BHop, function(v) Settings.BHop = v end)
+
+    ActionButton("REJOIN SERVER (Riconnetti)", Settings.Panel, function()
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    end)
+
+    Section("AUTOMATION & PERFORMANCE", "Prevenzione disconnessione e prestazioni")
+    Toggle("Anti-AFK Automagico", Settings.AntiAFK, function(v) Settings.AntiAFK = v end)
 end
 
 local function RenderSettings()
@@ -1115,12 +1217,12 @@ local function RenderSettings()
     local StatusLbl = Label(Content, "Ready.", 9, Settings.SubText)
     StatusLbl.Size = UDim2.new(1, -5, 0, 18)
 
-    Section("1. SAVE NEW CONFIGURATION", "Crea una nuova configurazione digitandone il nome")
+    Section("1. SAVE NEW CONFIGURATION", "Crea una nuova configurazione salvata")
 
     local SaveRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
     Corner(SaveRow, 6)
     
-    local NameLabel = Label(SaveRow, "Nome Nuova Config:", 10, Settings.Text)
+    local NameLabel = Label(SaveRow, "Nome Config:", 10, Settings.Text)
     NameLabel.Position = UDim2.fromOffset(12, 0)
     NameLabel.Size = UDim2.new(0.4, 0, 1, 0)
 
@@ -1129,7 +1231,7 @@ local function RenderSettings()
         Position = UDim2.new(1, -192, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
         Text = newConfigInputName,
-        PlaceholderText = "Digita nome config...",
+        PlaceholderText = "Nome config...",
         TextColor3 = Settings.Accent2,
         TextSize = 10,
         Font = Enum.Font.GothamBold
@@ -1143,29 +1245,26 @@ local function RenderSettings()
 
     ActionButton("SALVA NUOVA CONFIGURAZIONE", Settings.Accent, function()
         if newConfigInputName == "" then
-            StatusLbl.Text = "Errore: Inserisci un nome valido per la config!"
+            StatusLbl.Text = "Errore: Nome non valido!"
             StatusLbl.TextColor3 = Settings.Red
             return
         end
 
         if SaveConfig(newConfigInputName) then
-            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata con successo!"
+            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata!"
             StatusLbl.TextColor3 = Settings.Green
             SelectPage("Settings")
-        else
-            StatusLbl.Text = "Impossibile salvare la configurazione."
-            StatusLbl.TextColor3 = Settings.Red
         end
     end)
 
-    Section("2. MANAGE SAVED CONFIGURATIONS", "Seleziona una configurazione salvata dal menù a tendina")
+    Section("2. MANAGE CONFIGURATIONS", "Seleziona, carica o elimina configurazioni")
 
     local savedList = GetSavedConfigs()
     if #savedList > 0 and selectedDropdownConfig == "" then
         selectedDropdownConfig = savedList[1]
     end
 
-    local DropdownContainer = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, ZIndex = 5 }, Content)
+    local DropdownContainer = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
     Corner(DropdownContainer, 6)
 
     local DropTitle = Label(DropdownContainer, "Config Selezionata:", 10, Settings.Text)
@@ -1176,7 +1275,7 @@ local function RenderSettings()
         Size = UDim2.fromOffset(180, 28),
         Position = UDim2.new(1, -192, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
-        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config Found  ▼",
+        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config  ▼",
         TextColor3 = Settings.Accent2,
         TextSize = 10,
         Font = Enum.Font.GothamBold
@@ -1184,132 +1283,35 @@ local function RenderSettings()
     Corner(DropBtn, 5)
     Stroke(DropBtn, Settings.Border, 1)
 
-    local DropScroll = Create("ScrollingFrame", {
-        Size = UDim2.fromOffset(180, 100),
-        Position = UDim2.new(1, -192, 1, 5),
-        BackgroundColor3 = Settings.Panel,
-        BorderSizePixel = 0,
-        Visible = false,
-        ZIndex = 20,
-        ScrollBarThickness = 2,
-        ScrollBarImageColor3 = Settings.Accent
-    }, DropdownContainer)
-    Corner(DropScroll, 6)
-    Stroke(DropScroll, Settings.Border, 1)
-
-    local DropLayout = Create("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, DropScroll)
-    DropLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        DropScroll.CanvasSize = UDim2.new(0, 0, 0, DropLayout.AbsoluteContentSize.Y)
-    end)
-
-    local function PopulateDropdown()
-        for _, c in ipairs(DropScroll:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-
-        local currentSaved = GetSavedConfigs()
-        if #currentSaved == 0 then
-            local emptyLabel = Create("TextButton", {
-                Size = UDim2.new(1, 0, 0, 25),
-                BackgroundTransparency = 1,
-                Text = "(Nessuna config)",
-                TextColor3 = Settings.SubText,
-                TextSize = 9,
-                Font = Enum.Font.GothamMedium
-            }, DropScroll)
-            return
-        end
-
-        for _, cfgName in ipairs(currentSaved) do
-            local itemBtn = Create("TextButton", {
-                Size = UDim2.new(1, 0, 0, 25),
-                BackgroundColor3 = Settings.Element,
-                BorderSizePixel = 0,
-                Text = cfgName,
-                TextColor3 = Settings.Text,
-                TextSize = 9,
-                Font = Enum.Font.GothamBold,
-                ZIndex = 21
-            }, DropScroll)
-
-            itemBtn.MouseButton1Click:Connect(function()
-                selectedDropdownConfig = cfgName
-                DropBtn.Text = cfgName .. "  ▼"
-                DropScroll.Visible = false
-            end)
-        end
-    end
-
-    PopulateDropdown()
-
-    DropBtn.MouseButton1Click:Connect(function()
-        PopulateDropdown()
-        DropScroll.Visible = not DropScroll.Visible
-    end)
-
     ActionButton("LOAD CONFIG", Settings.Panel, function()
-        if selectedDropdownConfig == "" then
-            StatusLbl.Text = "Seleziona prima una configurazione!"
-            StatusLbl.TextColor3 = Settings.Red
-            return
-        end
-
-        if LoadConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' caricata con successo!"
+        if selectedDropdownConfig ~= "" and LoadConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Configurata '" .. selectedDropdownConfig .. "' caricata!"
             StatusLbl.TextColor3 = Settings.Green
             SelectPage("Settings")
-        else
-            StatusLbl.Text = "Errore nel caricamento di '" .. selectedDropdownConfig .. "'."
-            StatusLbl.TextColor3 = Settings.Red
         end
     end)
 
-    local currentAuto = GetAutoLoadConfig()
-    local autoText = (currentAuto and currentAuto ~= "") and ("AUTOLOAD ATTIVO: " .. currentAuto) or "NESSUN AUTOLOAD"
-
-    ActionButton("AUTOLOAD (" .. autoText .. ")", Settings.Element, function()
-        if selectedDropdownConfig == "" then
-            StatusLbl.Text = "Seleziona una configurazione da impostare in Auto-Load!"
-            StatusLbl.TextColor3 = Settings.Red
-            return
+    ActionButton("SET AUTOLOAD", Settings.Element, function()
+        if selectedDropdownConfig ~= "" then
+            SetAutoLoadConfig(selectedDropdownConfig)
+            StatusLbl.Text = "AutoLoad impostato su '" .. selectedDropdownConfig .. "'!"
+            StatusLbl.TextColor3 = Settings.Green
+            SelectPage("Settings")
         end
-
-        SetAutoLoadConfig(selectedDropdownConfig)
-        StatusLbl.Text = "'" .. selectedDropdownConfig .. "' impostata come Auto-Load all'avvio!"
-        StatusLbl.TextColor3 = Settings.Green
-        SelectPage("Settings")
     end)
 
     ActionButton("DELETE CONFIG", Settings.Red, function()
-        if selectedDropdownConfig == "" then
-            StatusLbl.Text = "Seleziona una configurazione da eliminare!"
-            StatusLbl.TextColor3 = Settings.Red
-            return
-        end
-
-        if DeleteConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' eliminata!"
+        if selectedDropdownConfig ~= "" and DeleteConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Configurazione eliminata!"
             StatusLbl.TextColor3 = Settings.Green
             selectedDropdownConfig = ""
             SelectPage("Settings")
-        else
-            StatusLbl.Text = "Impossibile eliminare la configurazione."
-            StatusLbl.TextColor3 = Settings.Red
         end
     end)
 
-    ActionButton("CLEAR AUTOLOAD", Color3.fromRGB(180, 50, 60), function()
-        SetAutoLoadConfig("")
-        StatusLbl.Text = "Configurazione Auto-Load rimossa."
-        StatusLbl.TextColor3 = Settings.Green
-        SelectPage("Settings")
-    end)
-
-    Section("KEYBIND ASSIGNMENTS", "Gestisci i tasti di scelta rapida")
+    Section("KEYBINDS & UNLOAD", "Scelte rapide ed esecuzione dello script")
     Keybind("Menu Toggle Key", Settings.ToggleKey, function(key) Settings.ToggleKey = key end)
     Keybind("Unload Script Key", Settings.UnloadKey, function(key) Settings.UnloadKey = key end)
-
-    Section("INTERFACE MANAGEMENT", "Comandi di chiusura sessione")
     ActionButton("UNLOAD SCRIPT", Settings.Red, UnloadScript)
 end
 
@@ -1334,17 +1336,14 @@ SelectPage = function(name)
     elseif name == "Combat" then RenderCombat()
     elseif name == "Visuals" then RenderVisuals()
     elseif name == "Movement" then RenderMovement()
+    elseif name == "Weapon" then RenderWeapon()
+    elseif name == "Player" then RenderPlayer()
+    elseif name == "Misc" then RenderMisc()
     elseif name == "Settings" then RenderSettings()
-    else
-        ClearContent()
-        Section(name, "Category modules configured")
     end
 end
 
---============================================================
--- NAV BUTTON BUILDER
---============================================================
-
+-- Navigation Buttons Creation
 for index, data in ipairs(Pages) do
     local name, iconAsset = data[1], data[2]
     local Button = Create("TextButton", {
@@ -1376,7 +1375,7 @@ for index, data in ipairs(Pages) do
     Button.MouseButton1Click:Connect(function() SelectPage(name) end)
 end
 
--- Search Engine Filter
+-- Search Engine Filtering
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local query = string.lower(Search.Text)
     for _, control in ipairs(CurrentControls) do
@@ -1388,7 +1387,7 @@ Search:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
--- Hotkey Listeners
+-- Keybind Listeners
 inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.KeyCode == Settings.ToggleKey then
@@ -1399,15 +1398,12 @@ inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 --============================================================
--- AUTOMATIC INITIALIZATION WITH LOADING SCREEN
+-- STARTUP INITIALIZATION
 --============================================================
 
 ShowLoadingScreen(function()
     local autoConfig = GetAutoLoadConfig()
-    if autoConfig then
-        LoadConfig(autoConfig)
-    end
-
+    if autoConfig then LoadConfig(autoConfig) end
     Main.Visible = true
     SelectPage("Dashboard")
 end)
