@@ -1,6 +1,6 @@
 --============================================================
 -- KOSMOS HUB V4 — MAIN HUB (NO KEY SYSTEM)
--- Integrated Silent Aim, Visuals, ESP & Auto-Load Config Manager
+-- Enhanced Config Manager + Refactored ESP + Loading + Movement
 --============================================================
 
 --// SERVICES
@@ -16,11 +16,11 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 --============================================================
--- SETTINGS & DEFAULT CONFIGURATION (ALL DISABLED BY DEFAULT)
+-- SETTINGS & DEFAULT CONFIGURATION
 --============================================================
 
 local Settings = {
-    -- Silent Aim Engine (Off by default)
+    -- Silent Aim Engine
     Enabled = false,
     ShowFOV = false,
     ShowDot = false,
@@ -37,7 +37,7 @@ local Settings = {
     ToggleKey = Enum.KeyCode.RightControl,
     UnloadKey = Enum.KeyCode.End,
     
-    -- Visuals Settings (Off by default)
+    -- Visuals & ESP Settings
     ESPEnabled = false,
     ESPBoxes = false,
     ESPNames = false,
@@ -48,6 +48,15 @@ local Settings = {
     Crosshair = false,
     ChamColor = Color3.fromRGB(145, 45, 255),
     ESPColor = Color3.fromRGB(255, 255, 255),
+
+    -- Movement Settings
+    EnableWalkSpeed = false,
+    WalkSpeed = 16,
+    EnableJumpPower = false,
+    JumpPower = 50,
+    InfiniteJump = false,
+    Noclip = false,
+    BHop = false,
 
     -- UI Style Settings
     Accent = Color3.fromRGB(145, 45, 255),
@@ -68,16 +77,18 @@ local Values = {}
 local hitPattern = {"Head", "Torso", "Torso", "Torso", "LeftLeg", "LeftLeg", "RightLeg"}
 local currentPatternIndex = 1
 local renderConnection = nil
+local steppedConnection = nil
+local jumpConnection = nil
 local inputConnection = nil
 local oldFire = nil
 local SimpleCastModule = nil
-local isUnlocked = true
 local espFolder = nil
 local origAmbient, origBrightness, origShadows = Lighting.Ambient, Lighting.Brightness, Lighting.GlobalShadows
-local currentConfigName = "default"
+local newConfigInputName = "default"
+local selectedDropdownConfig = ""
 
 --============================================================
--- CONFIGURATION SYSTEM MANAGER (SAVE / LOAD / AUTOLOAD)
+-- ADVANCED CONFIGURATION FILE MANAGER
 --============================================================
 
 local CONFIG_FOLDER = "KosmosHub_Configs"
@@ -91,9 +102,28 @@ local function EnsureFolder()
     end
 end
 
+local function GetSavedConfigs()
+    EnsureFolder()
+    local configs = {}
+    if listfiles then
+        local success, files = pcall(function() return listfiles(CONFIG_FOLDER) end)
+        if success and files then
+            for _, filePath in ipairs(files) do
+                if filePath:sub(-5) == ".json" then
+                    local fileName = filePath:match("([^/^\\]+)%.json$")
+                    if fileName then
+                        table.insert(configs, fileName)
+                    end
+                end
+            end
+        end
+    end
+    return configs
+end
+
 local function SaveConfig(name)
     EnsureFolder()
-    if not writefile then return false end
+    if not writefile or name == "" then return false end
     local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
     
     local configData = {}
@@ -107,7 +137,7 @@ local function SaveConfig(name)
         end
     end
 
-    local success, err = pcall(function()
+    local success = pcall(function()
         writefile(filePath, HttpService:JSONEncode(configData))
     end)
     return success
@@ -115,7 +145,7 @@ end
 
 local function LoadConfig(name)
     EnsureFolder()
-    if not readfile or not isfile then return false end
+    if not readfile or not isfile or name == "" then return false end
     local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
     if not isfile(filePath) then return false end
 
@@ -136,6 +166,16 @@ local function LoadConfig(name)
             end
         end
         return true
+    end
+    return false
+end
+
+local function DeleteConfig(name)
+    EnsureFolder()
+    if not delfile or not isfile or name == "" then return false end
+    local filePath = CONFIG_FOLDER .. "/" .. name .. ".json"
+    if isfile(filePath) then
+        return pcall(function() delfile(filePath) end)
     end
     return false
 end
@@ -161,9 +201,7 @@ end
 --============================================================
 
 local GUI_NAME = "KOSMOS_HUB_V4_MASTER"
-if CoreGui:FindFirstChild(GUI_NAME) then
-    CoreGui[GUI_NAME]:Destroy()
-end
+if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_NAME
@@ -267,7 +305,7 @@ Create("Frame", { Size = UDim2.new(0, 14, 0, 2), Position = UDim2.new(0, -7, 0, 
 Create("Frame", { Size = UDim2.new(0, 2, 0, 14), Position = UDim2.new(0, -1, 0, -7), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, CrosshairFrame)
 
 --============================================================
--- TARGETING & VISUALS ENGINE
+-- TARGETING & ESP ENGINE
 --============================================================
 
 local function getTargetPart(character, targetName)
@@ -382,7 +420,7 @@ local function updateESP()
                     if Settings.ESPBoxes or Settings.ESPNames or Settings.ESPDistance or Settings.ESPHealth then
                         local bb = Instance.new("BillboardGui")
                         bb.Adornee = root
-                        bb.Size = UDim2.new(4.5, 0, 5.5, 0)
+                        bb.Size = UDim2.new(4.2, 0, 5.6, 0)
                         bb.AlwaysOnTop = true
                         bb.Parent = espFolder
 
@@ -395,32 +433,41 @@ local function updateESP()
                             Stroke(box, Settings.ESPColor, 1.5, 0)
                         end
 
-                        if Settings.ESPNames or Settings.ESPDistance then
-                            local textStr = ""
-                            if Settings.ESPNames then textStr = player.Name end
-                            if Settings.ESPDistance then
-                                local dist = math.floor((root.Position - cam.CFrame.Position).Magnitude)
-                                textStr = textStr .. " [" .. tostring(dist) .. "m]"
-                            end
-
+                        if Settings.ESPNames then
                             local nameLbl = Instance.new("TextLabel")
-                            nameLbl.Size = UDim2.new(1, 0, 0, 15)
+                            nameLbl.Size = UDim2.new(1, 0, 0, 14)
                             nameLbl.Position = UDim2.new(0, 0, 0, -18)
                             nameLbl.BackgroundTransparency = 1
-                            nameLbl.Text = textStr
+                            nameLbl.Text = player.DisplayName .. " (@" .. player.Name .. ")"
                             nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
                             nameLbl.TextSize = 10
                             nameLbl.Font = Enum.Font.GothamBold
+                            nameLbl.TextStrokeTransparency = 0.4
                             nameLbl.Parent = bb
+                        end
+
+                        if Settings.ESPDistance then
+                            local dist = math.floor((root.Position - cam.CFrame.Position).Magnitude)
+                            local distLbl = Instance.new("TextLabel")
+                            distLbl.Size = UDim2.new(1, 0, 0, 14)
+                            distLbl.Position = UDim2.new(0, 0, 1, 4)
+                            distLbl.BackgroundTransparency = 1
+                            distLbl.Text = "[" .. tostring(dist) .. "m]"
+                            distLbl.TextColor3 = Settings.Accent2
+                            distLbl.TextSize = 9
+                            distLbl.Font = Enum.Font.GothamBold
+                            distLbl.TextStrokeTransparency = 0.4
+                            distLbl.Parent = bb
                         end
 
                         if Settings.ESPHealth then
                             local healthBg = Instance.new("Frame")
                             healthBg.Size = UDim2.new(0, 4, 1, 0)
                             healthBg.Position = UDim2.new(0, -8, 0, 0)
-                            healthBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                            healthBg.BackgroundColor3 = Color3.fromRGB(20, 18, 25)
                             healthBg.BorderSizePixel = 0
                             healthBg.Parent = bb
+                            Corner(healthBg, 2)
 
                             local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
                             local healthFill = Instance.new("Frame")
@@ -429,6 +476,19 @@ local function updateESP()
                             healthFill.BackgroundColor3 = Settings.Red:Lerp(Settings.Green, healthPct)
                             healthFill.BorderSizePixel = 0
                             healthFill.Parent = healthBg
+                            Corner(healthFill, 2)
+
+                            local hpValLbl = Instance.new("TextLabel")
+                            hpValLbl.Size = UDim2.new(0, 30, 0, 12)
+                            hpValLbl.Position = UDim2.new(0, -38, 1 - healthPct, -6)
+                            hpValLbl.BackgroundTransparency = 1
+                            hpValLbl.Text = tostring(math.floor(humanoid.Health))
+                            hpValLbl.TextColor3 = Color3.fromRGB(240, 240, 240)
+                            hpValLbl.TextSize = 8
+                            hpValLbl.Font = Enum.Font.GothamBold
+                            hpValLbl.TextXAlignment = Enum.TextXAlignment.Right
+                            hpValLbl.TextStrokeTransparency = 0.5
+                            hpValLbl.Parent = bb
                         end
                     end
                 end
@@ -436,6 +496,45 @@ local function updateESP()
         end
     end
 end
+
+--============================================================
+-- MOVEMENT ENGINE HANDLERS
+--============================================================
+
+jumpConnection = UserInputService.JumpRequest:Connect(function()
+    if Settings.InfiniteJump and LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+steppedConnection = RunService.Stepped:Connect(function()
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        if humanoid then
+            if Settings.EnableWalkSpeed then
+                humanoid.WalkSpeed = Settings.WalkSpeed
+            end
+            if Settings.EnableJumpPower then
+                humanoid.UseJumpPower = true
+                humanoid.JumpPower = Settings.JumpPower
+            end
+            if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+
+        if Settings.Noclip then
+            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
 
 renderConnection = RunService.RenderStepped:Connect(function()
     if Settings.RainbowFOV then
@@ -500,6 +599,8 @@ end)
 
 local function UnloadScript()
     if renderConnection then renderConnection:Disconnect() end
+    if steppedConnection then steppedConnection:Disconnect() end
+    if jumpConnection then jumpConnection:Disconnect() end
     if inputConnection then inputConnection:Disconnect() end
     if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
     
@@ -509,6 +610,77 @@ local function UnloadScript()
 
     if espFolder then espFolder:Destroy() end
     if ScreenGui then ScreenGui:Destroy() end
+end
+
+--============================================================
+-- INITIAL LOADING SCREEN ANIMATION
+--============================================================
+
+local function ShowLoadingScreen(onComplete)
+    local LoadingFrame = Create("Frame", {
+        Name = "LoadingFrame",
+        Size = UDim2.fromOffset(360, 200),
+        Position = UDim2.fromScale(0.5, 0.5),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Settings.Background,
+        BorderSizePixel = 0,
+        ZIndex = 100
+    }, ScreenGui)
+
+    Corner(LoadingFrame, 12)
+    Stroke(LoadingFrame, Settings.Accent, 1.5)
+
+    local Title = Label(LoadingFrame, "KOSMOS HUB V4", 20, Settings.Text, Enum.Font.GothamBlack)
+    Title.Position = UDim2.fromOffset(0, 25)
+    Title.Size = UDim2.new(1, 0, 0, 25)
+    Title.TextXAlignment = Enum.TextXAlignment.Center
+
+    local Subtitle = Label(LoadingFrame, "PURPLE EDITION • INITIALIZING", 9, Settings.Accent2, Enum.Font.GothamBold)
+    Subtitle.Position = UDim2.fromOffset(0, 52)
+    Subtitle.Size = UDim2.new(1, 0, 0, 16)
+    Subtitle.TextXAlignment = Enum.TextXAlignment.Center
+
+    local StatusLbl = Label(LoadingFrame, "Caricamento componenti...", 10, Settings.SubText, Enum.Font.GothamMedium)
+    StatusLbl.Position = UDim2.fromOffset(0, 95)
+    StatusLbl.Size = UDim2.new(1, 0, 0, 20)
+    StatusLbl.TextXAlignment = Enum.TextXAlignment.Center
+
+    local BarBackground = Create("Frame", {
+        Size = UDim2.new(0.8, 0, 0, 8),
+        Position = UDim2.new(0.1, 0, 0, 130),
+        BackgroundColor3 = Settings.Element,
+        BorderSizePixel = 0
+    }, LoadingFrame)
+    Corner(BarBackground, 4)
+
+    local BarFill = Create("Frame", {
+        Size = UDim2.new(0, 0, 1, 0),
+        BackgroundColor3 = Settings.Accent,
+        BorderSizePixel = 0
+    }, BarBackground)
+    Corner(BarFill, 4)
+
+    task.spawn(function()
+        local steps = {
+            {pct = 0.25, text = "Caricamento componenti interfaccia..."},
+            {pct = 0.55, text = "Inizializzazione ESP & Combat engine..."},
+            {pct = 0.85, text = "Verifica configurazioni salvate..."},
+            {pct = 1.00, text = "Completato! Avvio in corso..."}
+        }
+
+        for _, step in ipairs(steps) do
+            Tween(BarFill, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
+            StatusLbl.Text = step.text
+            task.wait(0.45)
+        end
+
+        task.wait(0.3)
+        Tween(LoadingFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+        task.wait(0.3)
+        LoadingFrame:Destroy()
+
+        if onComplete then onComplete() end
+    end)
 end
 
 --============================================================
@@ -532,7 +704,7 @@ Stroke(Main, Settings.Border, 1)
 
 local MainScale = Create("UIScale", { Scale = Settings.UIScale }, Main)
 
--- Dragging Logic
+-- Dragging Engine
 do
     local dragging, dragStart, startPosition
     Main.InputBegan:Connect(function(input)
@@ -559,14 +731,9 @@ do
 end
 
 -- Sidebar
-local Sidebar = Create("Frame", {
-    Size = UDim2.new(0, 220, 1, 0),
-    BackgroundColor3 = Settings.Sidebar,
-    BorderSizePixel = 0
-}, Main)
+local Sidebar = Create("Frame", { Size = UDim2.new(0, 220, 1, 0), BackgroundColor3 = Settings.Sidebar, BorderSizePixel = 0 }, Main)
 Corner(Sidebar, 12)
 
--- Logo
 local LogoFrame = Create("Frame", { Size = UDim2.fromOffset(190, 70), Position = UDim2.fromOffset(15, 10), BackgroundTransparency = 1 }, Sidebar)
 local LogoGlow = Create("Frame", { Size = UDim2.fromOffset(42, 42), Position = UDim2.fromOffset(5, 13), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, LogoFrame)
 Corner(LogoGlow, 12)
@@ -582,7 +749,6 @@ local BrandVersion = Label(LogoFrame, "PURPLE EDITION • V4", 8, Settings.Accen
 BrandVersion.Position = UDim2.fromOffset(58, 34)
 BrandVersion.Size = UDim2.new(1,-60,0,18)
 
--- Navigation Container
 local Navigation = Create("ScrollingFrame", {
     Size = UDim2.new(1,-20,1,-105),
     Position = UDim2.fromOffset(10,90),
@@ -598,12 +764,7 @@ NavLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 -- Topbar
-local TopBar = Create("Frame", {
-    Size = UDim2.new(1,-220,0,75),
-    Position = UDim2.fromOffset(220,0),
-    BackgroundColor3 = Settings.Background,
-    BorderSizePixel = 0
-}, Main)
+local TopBar = Create("Frame", { Size = UDim2.new(1,-220,0,75), Position = UDim2.fromOffset(220,0), BackgroundColor3 = Settings.Background, BorderSizePixel = 0 }, Main)
 
 local PageTitle = Label(TopBar, "Dashboard", 19, Settings.Text, Enum.Font.GothamBold)
 PageTitle.Position = UDim2.fromOffset(25,10)
@@ -613,7 +774,6 @@ local PageSub = Label(TopBar, "KOSMOS CONTROL CENTER", 9, Settings.SubText, Enum
 PageSub.Position = UDim2.fromOffset(25,38)
 PageSub.Size = UDim2.fromOffset(400,18)
 
--- Search Bar
 local Search = Create("TextBox", {
     Size = UDim2.fromOffset(260,35),
     Position = UDim2.new(1,-285,0,20),
@@ -630,7 +790,6 @@ local Search = Create("TextBox", {
 Corner(Search, 7)
 Stroke(Search, Settings.Border, 1)
 
--- Content Area
 local Content = Create("ScrollingFrame", {
     Size = UDim2.new(1,-245,1,-95),
     Position = UDim2.fromOffset(232,82),
@@ -790,7 +949,7 @@ end
 
 local function ActionButton(name, color, callback)
     local Button = Create("TextButton", {
-        Size = UDim2.new(1,-5,0,44),
+        Size = UDim2.new(1,-5,0,40),
         BackgroundColor3 = color or Settings.Accent,
         BorderSizePixel = 0,
         Text = name,
@@ -798,7 +957,7 @@ local function ActionButton(name, color, callback)
         TextSize = 10,
         Font = Enum.Font.GothamBold
     }, Content)
-    Corner(Button, 7)
+    Corner(Button, 6)
     Button.MouseButton1Click:Connect(callback)
     RegisterControl(Button, name)
     return Button
@@ -898,7 +1057,7 @@ local function RenderVisuals()
     Toggle("ESP 2D Bounding Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
     Toggle("ESP Player Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
     Toggle("ESP Distance Indicator", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
-    Toggle("ESP Health Bar", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Toggle("ESP Health Bar & HP", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
     Toggle("ESP Player Chams (Highlight)", Settings.ESPChams, function(v) Settings.ESPChams = v end)
 
     Section("WORLD & LIGHTING ENHANCEMENTS", "Environment modification features")
@@ -912,81 +1071,245 @@ local function RenderVisuals()
     end)
 end
 
-local function RenderSettings()
+-- RENDER MOVEMENT PAGE
+local function RenderMovement()
     ClearContent()
 
-    Section("CONFIGURATION MANAGER", "Save, load and autoload your custom profiles")
-
-    local ConfigInputRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
-    Corner(ConfigInputRow, 6)
-    
-    local ConfigTitle = Label(ConfigInputRow, "Profile Name", 10, Settings.Text)
-    ConfigTitle.Position = UDim2.fromOffset(12, 0)
-    ConfigTitle.Size = UDim2.new(0.4, 0, 1, 0)
-
-    local ConfigBox = Create("TextBox", {
-        Size = UDim2.fromOffset(160, 28),
-        Position = UDim2.new(1, -172, 0.5, -14),
-        BackgroundColor3 = Settings.Panel,
-        Text = currentConfigName,
-        PlaceholderText = "Profile name...",
-        TextColor3 = Settings.Accent2,
-        TextSize = 10,
-        Font = Enum.Font.GothamBold
-    }, ConfigInputRow)
-    Corner(ConfigBox, 5)
-    Stroke(ConfigBox, Settings.Border, 1)
-
-    ConfigBox:GetPropertyChangedSignal("Text"):Connect(function()
-        currentConfigName = ConfigBox.Text
+    Section("SPEED & JUMP MODIFIERS", "Modifica le velocità di movimento e salto del personaggio")
+    Toggle("Enable WalkSpeed Modifier", Settings.EnableWalkSpeed, function(v)
+        Settings.EnableWalkSpeed = v
+        if not v and LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then humanoid.WalkSpeed = 16 end
+        end
     end)
+    Slider("Custom WalkSpeed", 16, 250, Settings.WalkSpeed, " studs/s", function(v) Settings.WalkSpeed = v end)
+
+    Toggle("Enable Jump Power Modifier", Settings.EnableJumpPower, function(v)
+        Settings.EnableJumpPower = v
+        if not v and LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then humanoid.JumpPower = 50 end
+        end
+    end)
+    Slider("Custom JumpPower", 50, 350, Settings.JumpPower, " power", function(v) Settings.JumpPower = v end)
+
+    Section("ADVANCED MOVEMENT MECHANICS", "Abilità speciali di movimento e collisione")
+    Toggle("Infinite Jump (Salto Infinito)", Settings.InfiniteJump, function(v) Settings.InfiniteJump = v end)
+    Toggle("Noclip (Attraversa Muri)", Settings.Noclip, function(v)
+        Settings.Noclip = v
+        if not v and LocalPlayer.Character then
+            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end)
+    Toggle("Auto BHop (Bunny Hop)", Settings.BHop, function(v) Settings.BHop = v end)
+end
+
+local function RenderSettings()
+    ClearContent()
 
     local StatusLbl = Label(Content, "Ready.", 9, Settings.SubText)
     StatusLbl.Size = UDim2.new(1, -5, 0, 18)
 
-    ActionButton("SAVE CONFIG", Settings.Accent, function()
-        if SaveConfig(currentConfigName) then
-            StatusLbl.Text = "Config '" .. currentConfigName .. "' saved successfully!"
+    Section("1. SAVE NEW CONFIGURATION", "Crea una nuova configurazione digitandone il nome")
+
+    local SaveRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
+    Corner(SaveRow, 6)
+    
+    local NameLabel = Label(SaveRow, "Nome Nuova Config:", 10, Settings.Text)
+    NameLabel.Position = UDim2.fromOffset(12, 0)
+    NameLabel.Size = UDim2.new(0.4, 0, 1, 0)
+
+    local SaveNameBox = Create("TextBox", {
+        Size = UDim2.fromOffset(180, 28),
+        Position = UDim2.new(1, -192, 0.5, -14),
+        BackgroundColor3 = Settings.Panel,
+        Text = newConfigInputName,
+        PlaceholderText = "Digita nome config...",
+        TextColor3 = Settings.Accent2,
+        TextSize = 10,
+        Font = Enum.Font.GothamBold
+    }, SaveRow)
+    Corner(SaveNameBox, 5)
+    Stroke(SaveNameBox, Settings.Border, 1)
+
+    SaveNameBox:GetPropertyChangedSignal("Text"):Connect(function()
+        newConfigInputName = SaveNameBox.Text
+    end)
+
+    ActionButton("SALVA NUOVA CONFIGURAZIONE", Settings.Accent, function()
+        if newConfigInputName == "" then
+            StatusLbl.Text = "Errore: Inserisci un nome valido per la config!"
+            StatusLbl.TextColor3 = Settings.Red
+            return
+        end
+
+        if SaveConfig(newConfigInputName) then
+            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata con successo!"
             StatusLbl.TextColor3 = Settings.Green
+            SelectPage("Settings")
         else
-            StatusLbl.Text = "Failed to save config."
+            StatusLbl.Text = "Impossibile salvare la configurazione."
             StatusLbl.TextColor3 = Settings.Red
         end
     end)
 
+    Section("2. MANAGE SAVED CONFIGURATIONS", "Seleziona una configurazione salvata dal menù a tendina")
+
+    local savedList = GetSavedConfigs()
+    if #savedList > 0 and selectedDropdownConfig == "" then
+        selectedDropdownConfig = savedList[1]
+    end
+
+    local DropdownContainer = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, ZIndex = 5 }, Content)
+    Corner(DropdownContainer, 6)
+
+    local DropTitle = Label(DropdownContainer, "Config Selezionata:", 10, Settings.Text)
+    DropTitle.Position = UDim2.fromOffset(12, 0)
+    DropTitle.Size = UDim2.new(0.4, 0, 1, 0)
+
+    local DropBtn = Create("TextButton", {
+        Size = UDim2.fromOffset(180, 28),
+        Position = UDim2.new(1, -192, 0.5, -14),
+        BackgroundColor3 = Settings.Panel,
+        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config Found  ▼",
+        TextColor3 = Settings.Accent2,
+        TextSize = 10,
+        Font = Enum.Font.GothamBold
+    }, DropdownContainer)
+    Corner(DropBtn, 5)
+    Stroke(DropBtn, Settings.Border, 1)
+
+    local DropScroll = Create("ScrollingFrame", {
+        Size = UDim2.fromOffset(180, 100),
+        Position = UDim2.new(1, -192, 1, 5),
+        BackgroundColor3 = Settings.Panel,
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 20,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Settings.Accent
+    }, DropdownContainer)
+    Corner(DropScroll, 6)
+    Stroke(DropScroll, Settings.Border, 1)
+
+    local DropLayout = Create("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, DropScroll)
+    DropLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        DropScroll.CanvasSize = UDim2.new(0, 0, 0, DropLayout.AbsoluteContentSize.Y)
+    end)
+
+    local function PopulateDropdown()
+        for _, c in ipairs(DropScroll:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+
+        local currentSaved = GetSavedConfigs()
+        if #currentSaved == 0 then
+            local emptyLabel = Create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 25),
+                BackgroundTransparency = 1,
+                Text = "(Nessuna config)",
+                TextColor3 = Settings.SubText,
+                TextSize = 9,
+                Font = Enum.Font.GothamMedium
+            }, DropScroll)
+            return
+        end
+
+        for _, cfgName in ipairs(currentSaved) do
+            local itemBtn = Create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 25),
+                BackgroundColor3 = Settings.Element,
+                BorderSizePixel = 0,
+                Text = cfgName,
+                TextColor3 = Settings.Text,
+                TextSize = 9,
+                Font = Enum.Font.GothamBold,
+                ZIndex = 21
+            }, DropScroll)
+
+            itemBtn.MouseButton1Click:Connect(function()
+                selectedDropdownConfig = cfgName
+                DropBtn.Text = cfgName .. "  ▼"
+                DropScroll.Visible = false
+            end)
+        end
+    end
+
+    PopulateDropdown()
+
+    DropBtn.MouseButton1Click:Connect(function()
+        PopulateDropdown()
+        DropScroll.Visible = not DropScroll.Visible
+    end)
+
     ActionButton("LOAD CONFIG", Settings.Panel, function()
-        if LoadConfig(currentConfigName) then
-            StatusLbl.Text = "Config '" .. currentConfigName .. "' loaded successfully!"
+        if selectedDropdownConfig == "" then
+            StatusLbl.Text = "Seleziona prima una configurazione!"
+            StatusLbl.TextColor3 = Settings.Red
+            return
+        end
+
+        if LoadConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' caricata con successo!"
             StatusLbl.TextColor3 = Settings.Green
             SelectPage("Settings")
         else
-            StatusLbl.Text = "Config '" .. currentConfigName .. "' not found!"
+            StatusLbl.Text = "Errore nel caricamento di '" .. selectedDropdownConfig .. "'."
             StatusLbl.TextColor3 = Settings.Red
         end
     end)
 
     local currentAuto = GetAutoLoadConfig()
-    local autoText = currentAuto and ("CURRENT AUTOLOAD: " .. currentAuto) or "NO AUTOLOAD SET"
+    local autoText = (currentAuto and currentAuto ~= "") and ("AUTOLOAD ATTIVO: " .. currentAuto) or "NESSUN AUTOLOAD"
 
-    ActionButton("SET AS AUTO-LOAD CONFIG (" .. autoText .. ")", Settings.ElementHover, function()
-        SetAutoLoadConfig(currentConfigName)
-        StatusLbl.Text = "'" .. currentConfigName .. "' set as default Auto-Load config!"
+    ActionButton("AUTOLOAD (" .. autoText .. ")", Settings.Element, function()
+        if selectedDropdownConfig == "" then
+            StatusLbl.Text = "Seleziona una configurazione da impostare in Auto-Load!"
+            StatusLbl.TextColor3 = Settings.Red
+            return
+        end
+
+        SetAutoLoadConfig(selectedDropdownConfig)
+        StatusLbl.Text = "'" .. selectedDropdownConfig .. "' impostata come Auto-Load all'avvio!"
         StatusLbl.TextColor3 = Settings.Green
         SelectPage("Settings")
     end)
 
-    ActionButton("CLEAR AUTO-LOAD", Settings.Red, function()
+    ActionButton("DELETE CONFIG", Settings.Red, function()
+        if selectedDropdownConfig == "" then
+            StatusLbl.Text = "Seleziona una configurazione da eliminare!"
+            StatusLbl.TextColor3 = Settings.Red
+            return
+        end
+
+        if DeleteConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' eliminata!"
+            StatusLbl.TextColor3 = Settings.Green
+            selectedDropdownConfig = ""
+            SelectPage("Settings")
+        else
+            StatusLbl.Text = "Impossibile eliminare la configurazione."
+            StatusLbl.TextColor3 = Settings.Red
+        end
+    end)
+
+    ActionButton("CLEAR AUTOLOAD", Color3.fromRGB(180, 50, 60), function()
         SetAutoLoadConfig("")
-        StatusLbl.Text = "Auto-Load configuration cleared."
-        StatusLbl.TextColor3 = Settings.Red
+        StatusLbl.Text = "Configurazione Auto-Load rimossa."
+        StatusLbl.TextColor3 = Settings.Green
         SelectPage("Settings")
     end)
 
-    Section("KEYBIND ASSIGNMENTS", "Manage script hotkeys")
+    Section("KEYBIND ASSIGNMENTS", "Gestisci i tasti di scelta rapida")
     Keybind("Menu Toggle Key", Settings.ToggleKey, function(key) Settings.ToggleKey = key end)
     Keybind("Unload Script Key", Settings.UnloadKey, function(key) Settings.UnloadKey = key end)
 
-    Section("INTERFACE MANAGEMENT", "Session and script controls")
+    Section("INTERFACE MANAGEMENT", "Comandi di chiusura sessione")
     ActionButton("UNLOAD SCRIPT", Settings.Red, UnloadScript)
 end
 
@@ -1010,6 +1333,7 @@ SelectPage = function(name)
     if name == "Dashboard" then RenderDashboard()
     elseif name == "Combat" then RenderCombat()
     elseif name == "Visuals" then RenderVisuals()
+    elseif name == "Movement" then RenderMovement()
     elseif name == "Settings" then RenderSettings()
     else
         ClearContent()
@@ -1075,17 +1399,15 @@ inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 --============================================================
--- AUTOMATIC INITIALIZATION & CONFIG AUTOLOAD
+-- AUTOMATIC INITIALIZATION WITH LOADING SCREEN
 --============================================================
 
-task.spawn(function()
-    -- Controlla se esiste una configurazione impostata in Auto-Load
+ShowLoadingScreen(function()
     local autoConfig = GetAutoLoadConfig()
     if autoConfig then
         LoadConfig(autoConfig)
     end
 
-    -- Apri direttamente l'interfaccia principale
     Main.Visible = true
     SelectPage("Dashboard")
 end)
