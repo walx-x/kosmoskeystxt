@@ -1,6 +1,6 @@
 --============================================================
 -- KOSMOS HUB V4 — FULL UNRESTRICTED EXTENDED MASTER EDITION
--- Complete Framework with Fixed ScreenGui ESP & Expanded Modules
+-- Complete Framework with Advanced Weapon Engine, ESP & Configs
 --============================================================
 
 --// SERVICES
@@ -64,7 +64,7 @@ local Settings = {
     FlyEnabled = false,
     FlySpeed = 50,
 
-    -- Weapon & Gun Modifiers
+    -- Weapon & Gun Modifiers (Aggiornato)
     NoRecoil = false,
     NoSpread = false,
     RapidFire = false,
@@ -394,7 +394,7 @@ local function getBestTarget(maxDistance)
 end
 
 --============================================================
--- FIXED VISUALS & 2D SCREEN OVERLAY ESP
+-- VISUALS & 2D SCREEN OVERLAY ESP
 --============================================================
 
 local function updateESP()
@@ -525,11 +525,6 @@ end
 -- EXTENDED WEAPON MODIFIERS ENGINE
 --============================================================
 
--- Nuove impostazioni armi aggiunte allo stato globale
-Settings.Wallbang = false
-Settings.MultiShot = false
-Settings.ShotCount = 5
-
 local function applyWeaponModifiers()
     if not LocalPlayer.Character then return end
     local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
@@ -542,10 +537,22 @@ local function applyWeaponModifiers()
             if success and type(content) == "table" then
                 -- No Recoil
                 if Settings.NoRecoil then
-                    if content.Recoil ~= nil then content.Recoil = 0 end
-                    if content.recoil ~= nil then content.recoil = 0 end
-                    if content.RecoilControl ~= nil then content.RecoilControl = 0 end
-                    if content.CameraShake ~= nil then content.CameraShake = Vector3.zero end
+                    task.spawn(function()
+                        while task.wait(0.1) do
+                            if Settings.NoRecoil then
+                                local pScripts = LocalPlayer:FindFirstChildWhichIsA("PlayerScripts")
+                                if pScripts then
+                                    for _, scriptObj in ipairs(pScripts:GetDescendants()) do
+                                        if scriptObj.Name == "bobbing_global_scale" and scriptObj:IsA("ValueBase") then
+                                            scriptObj.Value = 0
+                                        end
+                                    end
+                                end
+                            else
+                                break
+                            end
+                        end
+                    end)
                 end
                 
                 -- No Spread
@@ -599,6 +606,110 @@ local function applyWeaponModifiers()
     end
 end
 
+--============================================================
+-- RUNTIME CONNECTIONS & HOOKS
+--============================================================
+
+jumpConnection = UserInputService.JumpRequest:Connect(function()
+    if Settings.InfiniteJump and LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+
+steppedConnection = RunService.Stepped:Connect(function()
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+        if humanoid then
+            if Settings.EnableWalkSpeed then humanoid.WalkSpeed = Settings.WalkSpeed end
+            if Settings.EnableJumpPower then humanoid.UseJumpPower = true; humanoid.JumpPower = Settings.JumpPower end
+            if Settings.EnableHipHeight then humanoid.HipHeight = Settings.CustomHipHeight end
+            if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+
+        local cam = getCamera()
+        if cam and Settings.EnableCustomFOV then
+            cam.FieldOfView = Settings.CustomFOV
+        end
+
+        if Settings.FlyEnabled and root then
+            local flyVec = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec = flyVec + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec = flyVec - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then flyVec = flyVec - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then flyVec = flyVec + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then flyVec = flyVec + Vector3.yAxis end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then flyVec = flyVec - Vector3.yAxis end
+
+            root.Velocity = Vector3.zero
+            if flyVec.Magnitude > 0 then
+                root.CFrame = root.CFrame + (flyVec.Unit * (Settings.FlySpeed / 10))
+            end
+        end
+
+        if Settings.Spinbot and root then
+            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+        end
+
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if Settings.Noclip or Settings.FlyEnabled then
+                    part.CanCollide = false
+                end
+                if Settings.GhostMode and part.Name ~= "HumanoidRootPart" then
+                    part.LocalTransparencyModifier = 0.6
+                end
+            end
+        end
+    end
+end)
+
+renderConnection = RunService.RenderStepped:Connect(function()
+    if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
+    if Settings.Fullbright then
+        Lighting.Ambient = Color3.new(1,1,1)
+        Lighting.Brightness = 2
+        Lighting.GlobalShadows = false
+    end
+
+    CrosshairFrame.Visible = Settings.Crosshair
+    local activeFOV = getCurrentFOV()
+    local mousePos = getMousePosition()
+
+    if Settings.Enabled and Settings.ShowFOV then
+        FOVFrame.Visible = true
+        FOVFrame.Size = UDim2.new(0, activeFOV * 2, 0, activeFOV * 2)
+        FOVFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+        FOVStroke.Color = Settings.FOVColor
+    else
+        FOVFrame.Visible = false
+    end
+
+    local bestPart, bestScreenPos = getBestTarget(activeFOV)
+    if Settings.Enabled and Settings.ShowDot and bestScreenPos then
+        TargetDotFrame.Visible = true
+        TargetDotFrame.Position = UDim2.new(0, bestScreenPos.X, 0, bestScreenPos.Y)
+    else
+        TargetDotFrame.Visible = false
+    end
+
+    applyWeaponModifiers()
+    updateESP()
+end)
+
+-- Anti-AFK Handler
+afkConnection = LocalPlayer.Idled:Connect(function()
+    if Settings.AntiAFK then
+        VirtualUser:Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
+    end
+end)
+
 -- Universal Gun Engine Hooking (Aggiornato con Silent Aim + Wallbang + MultiShot)
 pcall(function()
     SimpleCastModule = require(ReplicatedStorage:FindFirstChild("SimpleCast", true))
@@ -619,7 +730,7 @@ pcall(function()
                 end
             end
 
-            -- Modifica Raycast per Wallbang (Iproiettili ignorano la geometria della mappa)
+            -- Modifica Raycast per Wallbang (I proiettili ignorano la geometria della mappa)
             if Settings.Wallbang and options and typeof(options) == "table" and options.RaycastParams then
                 options.RaycastParams.FilterType = Enum.RaycastFilterType.Include
             end
@@ -640,6 +751,23 @@ pcall(function()
         end
     end
 end)
+
+local function UnloadScript()
+    if renderConnection then renderConnection:Disconnect() end
+    if steppedConnection then steppedConnection:Disconnect() end
+    if jumpConnection then jumpConnection:Disconnect() end
+    if inputConnection then inputConnection:Disconnect() end
+    if afkConnection then afkConnection:Disconnect() end
+    if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
+    
+    Lighting.Ambient = origAmbient
+    Lighting.Brightness = origBrightness
+    Lighting.GlobalShadows = origShadows
+
+    if espFolder then espFolder:Destroy() end
+    if tracerFolder then tracerFolder:Destroy() end
+    if ScreenGui then ScreenGui:Destroy() end
+end
 
 --============================================================
 -- ANIMATED INITIALIZATION LOADING SCREEN
@@ -669,7 +797,7 @@ local function ShowLoadingScreen(onComplete)
     Subtitle.Size = UDim2.new(1, 0, 0, 16)
     Subtitle.TextXAlignment = Enum.TextXAlignment.Center
 
-    local StatusLbl = Label(LoadingFrame, "Caricamento moduli ed ESP...", 10, Settings.SubText, Enum.Font.GothamMedium)
+    local StatusLbl = Label(LoadingFrame, "Caricamento moduli armi & balistica...", 10, Settings.SubText, Enum.Font.GothamMedium)
     StatusLbl.Position = UDim2.fromOffset(0, 105)
     StatusLbl.Size = UDim2.new(1, 0, 0, 20)
     StatusLbl.TextXAlignment = Enum.TextXAlignment.Center
@@ -693,7 +821,7 @@ local function ShowLoadingScreen(onComplete)
         local steps = {
             {pct = 0.2, text = "Inizializzazione grafica & UI..."},
             {pct = 0.45, text = "Caricamento Silent Aim & FOV Engine..."},
-            {pct = 0.70, text = "Configurazione CFrame Fly & Movement..."},
+            {pct = 0.70, text = "Configurazione Weapon Modifiers & Wallbang..."},
             {pct = 0.90, text = "Setup Player, Misc & Settings..."},
             {pct = 1.00, text = "Inizializzazione completata!"}
         }
@@ -1130,25 +1258,23 @@ local function RenderMovement()
     Slider("Fly Speed", 10, 200, Settings.FlySpeed, " speed", function(v) Settings.FlySpeed = v end)
 end
 
+-- AGGIORNATO CON TUTTE LE NUOVE FUNZIONI WEAPON
 local function RenderWeapon()
     ClearContent()
-    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori principali delle armi da fuoco")
-    Toggle("No Recoil (Azzera Rinculo)", Settings.NoRecoil, function(v) Settings.NoRecoil = v end)
+    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori delle prestazioni dell'arma")
+    Toggle("No Recoil (Azzera Rinculo / Camera Shake)", Settings.NoRecoil, function(v) Settings.NoRecoil = v end)
     Toggle("No Spread (Azzera Dispersione)", Settings.NoSpread, function(v) Settings.NoSpread = v end)
-    Toggle("Rapid Fire (Cadenza Massima)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
+    Toggle("Rapid Fire / Max RPM (Cadenza Istantanea)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
     Toggle("Always Auto (Modalità Automatica)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
-
-    Section("AMMO & RELOAD MODS", "Gestione munizioni e caricatore")
     Toggle("Infinite Ammo (Munizioni Infinite)", Settings.InfiniteAmmo, function(v) Settings.InfiniteAmmo = v end)
     Toggle("Instant Reload (Ricarica Istantanea)", Settings.InstantReload, function(v) Settings.InstantReload = v end)
 
-    Section("ADVANCED BALLISTICS & WALLBANG", "Modifiche avanzate ai proiettili")
-    Toggle("Wallbang (Spara attraverso i Muri)", Settings.Wallbang, function(v) Settings.Wallbang = v end)
-    Toggle("Multi-Shot / Shotgun Mode", Settings.MultiShot, function(v) Settings.MultiShot = v end)
-    Slider("Numero Proiettili per Colpo", 2, 15, Settings.ShotCount, " pellets", function(v) Settings.ShotCount = v end)
+    Section("ADVANCED BALLISTICS & SHOT MODS", "Wallbang, Multi-Shot e balistica avanzata")
+    Toggle("Wallbang (Proiettili Attraversano Muri)", Settings.Wallbang, function(v) Settings.Wallbang = v end)
+    Toggle("Multi-Shot / Shotgun Mod (Sparo Multiplo)", Settings.MultiShot, function(v) Settings.MultiShot = v end)
+    Slider("Multi-Shot Pellets Count", 2, 20, Settings.ShotCount, " colpi", function(v) Settings.ShotCount = v end)
 end
 
--- FULL PLAYER CATEGORY
 local function RenderPlayer()
     ClearContent()
     Section("CAMERA & PERSPECTIVE MODIFIERS", "Modificatori del campo visivo e vista del giocatore")
@@ -1185,7 +1311,6 @@ local function RenderPlayer()
     end)
 end
 
--- FULL MISC CATEGORY
 local function RenderMisc()
     ClearContent()
     Section("SERVER & SESSION UTILITIES", "Gestione del server e connessione rapida")
@@ -1225,7 +1350,6 @@ local function RenderMisc()
     end)
 end
 
--- FULL SETTINGS CATEGORY
 local function RenderSettings()
     ClearContent()
 
