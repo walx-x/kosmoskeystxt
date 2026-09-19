@@ -71,6 +71,9 @@ local Settings = {
     InfiniteAmmo = false,
     InstantReload = false,
     AlwaysAuto = false,
+    Wallbang = false,
+    MultiShot = false,
+    ShotCount = 5,
 
     -- Player & Anti-Aim Engine
     Spinbot = false,
@@ -519,151 +522,84 @@ local function updateESP()
 end
 
 --============================================================
--- WEAPON MODIFIERS ENGINE
+-- EXTENDED WEAPON MODIFIERS ENGINE
 --============================================================
+
+-- Nuove impostazioni armi aggiunte allo stato globale
+Settings.Wallbang = false
+Settings.MultiShot = false
+Settings.ShotCount = 5
 
 local function applyWeaponModifiers()
     if not LocalPlayer.Character then return end
     local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
     if not tool then return end
 
+    -- 1. Scansione e modifica dei ModuleScript (Framework tipo FE Gunkit, ACS, Carbon)
     for _, item in ipairs(tool:GetDescendants()) do
         if item:IsA("ModuleScript") then
             local success, content = pcall(function() return require(item) end)
             if success and type(content) == "table" then
+                -- No Recoil
                 if Settings.NoRecoil then
                     if content.Recoil ~= nil then content.Recoil = 0 end
                     if content.recoil ~= nil then content.recoil = 0 end
                     if content.RecoilControl ~= nil then content.RecoilControl = 0 end
+                    if content.CameraShake ~= nil then content.CameraShake = Vector3.zero end
                 end
+                
+                -- No Spread
                 if Settings.NoSpread then
                     if content.Spread ~= nil then content.Spread = 0 end
                     if content.spread ~= nil then content.spread = 0 end
                     if content.Accuracy ~= nil then content.Accuracy = 1 end
+                    if content.Inaccuracy ~= nil then content.Inaccuracy = 0 end
                 end
+                
+                -- Rapid Fire / Max RPM
                 if Settings.RapidFire then
-                    if content.FireRate ~= nil then content.FireRate = 0.02 end
-                    if content.fireRate ~= nil then content.fireRate = 0.02 end
-                    if content.Cooldown ~= nil then content.Cooldown = 0.02 end
+                    if content.FireRate ~= nil then content.FireRate = 0.01 end
+                    if content.fireRate ~= nil then content.fireRate = 0.01 end
+                    if content.Cooldown ~= nil then content.Cooldown = 0.01 end
+                    if content.RPM ~= nil then content.RPM = 2500 end
                 end
+                
+                -- Always Auto
                 if Settings.AlwaysAuto then
                     if content.Auto ~= nil then content.Auto = true end
                     if content.Mode ~= nil then content.Mode = "Auto" end
+                    if content.FireMode ~= nil then content.FireMode = "Auto" end
+                end
+
+                -- Infinite Ammo
+                if Settings.InfiniteAmmo then
+                    if content.Ammo ~= nil then content.Ammo = 999 end
+                    if content.MaxAmmo ~= nil then content.MaxAmmo = 999 end
+                    if content.StoredAmmo ~= nil then content.StoredAmmo = 999 end
+                    if content.ClipSize ~= nil then content.ClipSize = 999 end
+                    if content.AmmoInClip ~= nil then content.AmmoInClip = 999 end
+                end
+
+                -- Instant Reload
+                if Settings.InstantReload then
+                    if content.ReloadTime ~= nil then content.ReloadTime = 0 end
+                    if content.ReloadSpeed ~= nil then content.ReloadSpeed = 100 end
+                end
+            end
+        
+        -- 2. Scansione ValueObject tradizionali (IntValue, NumberValue) interni al Tool
+        elseif item:IsA("ValueBase") then
+            local name = string.lower(item.Name)
+            if Settings.InfiniteAmmo and (name:find("ammo") or name:find("clip") or name:find("storedammo")) then
+                if item:IsA("IntValue") or item:IsA("NumberValue") then 
+                    item.Value = 999 
                 end
             end
         end
     end
 end
 
---============================================================
--- RUNTIME CONNECTIONS & LOOPING
---============================================================
-
-jumpConnection = UserInputService.JumpRequest:Connect(function()
-    if Settings.InfiniteJump and LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
-
-steppedConnection = RunService.Stepped:Connect(function()
-    if LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-        if humanoid then
-            if Settings.EnableWalkSpeed then humanoid.WalkSpeed = Settings.WalkSpeed end
-            if Settings.EnableJumpPower then humanoid.UseJumpPower = true; humanoid.JumpPower = Settings.JumpPower end
-            if Settings.EnableHipHeight then humanoid.HipHeight = Settings.CustomHipHeight end
-            if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end
-
-        -- Camera FOV Modification
-        local cam = getCamera()
-        if cam and Settings.EnableCustomFOV then
-            cam.FieldOfView = Settings.CustomFOV
-        end
-
-        -- CFrame Fly System
-        if Settings.FlyEnabled and root then
-            local flyVec = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec = flyVec + cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec = flyVec - cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then flyVec = flyVec - cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then flyVec = flyVec + cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then flyVec = flyVec + Vector3.yAxis end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then flyVec = flyVec - Vector3.yAxis end
-
-            root.Velocity = Vector3.zero
-            if flyVec.Magnitude > 0 then
-                root.CFrame = root.CFrame + (flyVec.Unit * (Settings.FlySpeed / 10))
-            end
-        end
-
-        -- Spinbot Anti-Aim
-        if Settings.Spinbot and root then
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
-        end
-
-        -- Ghost Mode / Transparency
-        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if Settings.Noclip or Settings.FlyEnabled then
-                    part.CanCollide = false
-                end
-                if Settings.GhostMode and part.Name ~= "HumanoidRootPart" then
-                    part.LocalTransparencyModifier = 0.6
-                end
-            end
-        end
-    end
-end)
-
-renderConnection = RunService.RenderStepped:Connect(function()
-    if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
-    if Settings.Fullbright then
-        Lighting.Ambient = Color3.new(1,1,1)
-        Lighting.Brightness = 2
-        Lighting.GlobalShadows = false
-    end
-
-    CrosshairFrame.Visible = Settings.Crosshair
-    local activeFOV = getCurrentFOV()
-    local mousePos = getMousePosition()
-
-    if Settings.Enabled and Settings.ShowFOV then
-        FOVFrame.Visible = true
-        FOVFrame.Size = UDim2.new(0, activeFOV * 2, 0, activeFOV * 2)
-        FOVFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
-        FOVStroke.Color = Settings.FOVColor
-    else
-        FOVFrame.Visible = false
-    end
-
-    local bestPart, bestScreenPos = getBestTarget(activeFOV)
-    if Settings.Enabled and Settings.ShowDot and bestScreenPos then
-        TargetDotFrame.Visible = true
-        TargetDotFrame.Position = UDim2.new(0, bestScreenPos.X, 0, bestScreenPos.Y)
-    else
-        TargetDotFrame.Visible = false
-    end
-
-    applyWeaponModifiers()
-    updateESP()
-end)
-
--- Anti-AFK Handler
-afkConnection = LocalPlayer.Idled:Connect(function()
-    if Settings.AntiAFK then
-        VirtualUser:Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
-        task.wait(1)
-        VirtualUser:Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
-    end
-end)
-
--- Universal Gun Engine Hooking
+-- Universal Gun Engine Hooking (Aggiornato con Silent Aim + Wallbang + MultiShot)
 pcall(function()
     SimpleCastModule = require(ReplicatedStorage:FindFirstChild("SimpleCast", true))
     if SimpleCastModule and SimpleCastModule.Fire then
@@ -682,27 +618,28 @@ pcall(function()
                     end
                 end
             end
+
+            -- Modifica Raycast per Wallbang (Iproiettili ignorano la geometria della mappa)
+            if Settings.Wallbang and options and typeof(options) == "table" and options.RaycastParams then
+                options.RaycastParams.FilterType = Enum.RaycastFilterType.Include
+            end
+
+            -- Multi-Shot / Shotgun Mod (Spara proiettili multipli contemporaneamente)
+            if Settings.MultiShot then
+                for i = 1, (Settings.ShotCount - 1) do
+                    local spreadOffset = Vector3.new(
+                        (math.random() - 0.5) * 0.04,
+                        (math.random() - 0.5) * 0.04,
+                        (math.random() - 0.5) * 0.04
+                    )
+                    oldFire(self, origin, (direction + spreadOffset).Unit, speed, options)
+                end
+            end
+
             return oldFire(self, origin, direction, speed, options)
         end
     end
 end)
-
-local function UnloadScript()
-    if renderConnection then renderConnection:Disconnect() end
-    if steppedConnection then steppedConnection:Disconnect() end
-    if jumpConnection then jumpConnection:Disconnect() end
-    if inputConnection then inputConnection:Disconnect() end
-    if afkConnection then afkConnection:Disconnect() end
-    if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
-    
-    Lighting.Ambient = origAmbient
-    Lighting.Brightness = origBrightness
-    Lighting.GlobalShadows = origShadows
-
-    if espFolder then espFolder:Destroy() end
-    if tracerFolder then tracerFolder:Destroy() end
-    if ScreenGui then ScreenGui:Destroy() end
-end
 
 --============================================================
 -- ANIMATED INITIALIZATION LOADING SCREEN
@@ -1195,11 +1132,20 @@ end
 
 local function RenderWeapon()
     ClearContent()
-    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori universali per le armi da fuoco")
+    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori principali delle armi da fuoco")
     Toggle("No Recoil (Azzera Rinculo)", Settings.NoRecoil, function(v) Settings.NoRecoil = v end)
     Toggle("No Spread (Azzera Dispersione)", Settings.NoSpread, function(v) Settings.NoSpread = v end)
-    Toggle("Rapid Fire (Cadenza di sparo massima)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
-    Toggle("Always Auto (Trasforma in Automatico)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
+    Toggle("Rapid Fire (Cadenza Massima)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
+    Toggle("Always Auto (Modalità Automatica)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
+
+    Section("AMMO & RELOAD MODS", "Gestione munizioni e caricatore")
+    Toggle("Infinite Ammo (Munizioni Infinite)", Settings.InfiniteAmmo, function(v) Settings.InfiniteAmmo = v end)
+    Toggle("Instant Reload (Ricarica Istantanea)", Settings.InstantReload, function(v) Settings.InstantReload = v end)
+
+    Section("ADVANCED BALLISTICS & WALLBANG", "Modifiche avanzate ai proiettili")
+    Toggle("Wallbang (Spara attraverso i Muri)", Settings.Wallbang, function(v) Settings.Wallbang = v end)
+    Toggle("Multi-Shot / Shotgun Mode", Settings.MultiShot, function(v) Settings.MultiShot = v end)
+    Slider("Numero Proiettili per Colpo", 2, 15, Settings.ShotCount, " pellets", function(v) Settings.ShotCount = v end)
 end
 
 -- FULL PLAYER CATEGORY
