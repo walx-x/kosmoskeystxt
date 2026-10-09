@@ -1,2 +1,11 @@
 {
+    "KoSMO-7738-5M2R": {
+        "hwid": null,
+        "used": false,
+        "rank": "Standard",
+        "duration": "lt",
+        "created_at": "2026-10-09T16:02:10+00:00",
+        "expires_at": null,
+        "expires_ts": null
+    }
 }
