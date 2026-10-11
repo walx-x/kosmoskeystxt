@@ -1,6 +1,7 @@
+
 --============================================================
--- KOSMOS HUB V4 — FULL UNRESTRICTED EXTENDED MASTER EDITION
--- Complete Framework with Advanced Weapon Engine, ESP & Configs
+-- KoSMO HUB — PROFESSIONAL PURPLE EDITION
+-- Advanced Silent Aim, ESP, Aim Assist & Config Framework
 --============================================================
 
 --// SERVICES
@@ -9,7 +10,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -22,23 +22,36 @@ local LocalPlayer = Players.LocalPlayer
 --============================================================
 
 local Settings = {
-    -- Silent Aim & Combat Engine
+    -- Silent Aim Engine
     Enabled = false,
     ShowFOV = false,
     ShowDot = false,
     BaseFOV = 60,
     DynamicFOV = false,
     WallCheck = false,
-    TeamCheck = false,
-    HitPatternEnabled = false,
-    TargetBone = "Head",
+    CustomPart = false,
     HitProbability = 100,
+    SilentKey = nil,
+    CustomPartKey = nil,
     FOVColor = Color3.fromRGB(145, 45, 255),
     RainbowFOV = false,
     TargetColor = Color3.fromRGB(255, 45, 85),
-    ToggleKey = Enum.KeyCode.RightControl,
-    UnloadKey = Enum.KeyCode.End,
+    ToggleKey = nil,
+    UnloadKey = nil,
     
+    -- Aim Assist Engine
+    AimAssistEnabled = false,
+    AimAssistFOV = 80,
+    AimAssistSmoothness = 0.2,
+    AimAssistCustomPart = false,
+    AimAssistWallCheck = false,
+    AimAssistShowFOV = false,
+    AimAssistRainbowFOV = false,
+    AimAssistFOVColor = Color3.fromRGB(145, 120, 255),
+    AimAssistKey = nil,
+    AimAssistCustomPartKey = nil,
+    AimAssistWallCheckKey = nil,
+
     -- Visuals & ESP Engine
     ESPEnabled = false,
     ESPBoxes = false,
@@ -47,8 +60,7 @@ local Settings = {
     ESPHealth = false,
     ESPChams = false,
     ESPTracers = false,
-    Fullbright = false,
-    Crosshair = false,
+    ESPKey = nil,
     ChamColor = Color3.fromRGB(145, 45, 255),
     ESPColor = Color3.fromRGB(255, 255, 255),
     TracerColor = Color3.fromRGB(145, 45, 255),
@@ -56,68 +68,113 @@ local Settings = {
     -- Movement Engine
     EnableWalkSpeed = false,
     WalkSpeed = 16,
-    EnableJumpPower = false,
-    JumpPower = 50,
-    InfiniteJump = false,
+    WalkSpeedKey = nil,
     Noclip = false,
-    BHop = false,
     FlyEnabled = false,
     FlySpeed = 50,
-
-    -- Weapon & Gun Modifiers (Aggiornato)
-    NoRecoil = false,
-    NoSpread = false,
-    RapidFire = false,
-    InfiniteAmmo = false,
-    InstantReload = false,
-    AlwaysAuto = false,
-    Wallbang = false,
-    MultiShot = false,
-    ShotCount = 5,
 
     -- Player & Anti-Aim Engine
     Spinbot = false,
     SpinSpeed = 30,
-    CustomFOV = 70,
-    EnableCustomFOV = false,
     CustomHipHeight = 2,
     EnableHipHeight = false,
     GhostMode = false,
 
     -- Misc & Utility Engine
-    AntiAFK = false,
+    Fullbright = false,
     FPSBoost = false,
+    NoDecals = false,
+    AntiAFK = false,
 
-    -- UI Theme Customization
+    -- Whitelist & Combat Check
+    Whitelist = {},
+    WhitelistCombatCheck = true,
+
+    -- UI Theme (Purple KoSMO Theme)
     Accent = Color3.fromRGB(145, 45, 255),
     Accent2 = Color3.fromRGB(205, 80, 255),
-    Background = Color3.fromRGB(10, 8, 15),
-    Sidebar = Color3.fromRGB(15, 12, 22),
-    Panel = Color3.fromRGB(19, 16, 27),
-    Element = Color3.fromRGB(27, 23, 37),
-    Border = Color3.fromRGB(58, 45, 76),
+    Background = Color3.fromRGB(12, 10, 18),
+    Sidebar = Color3.fromRGB(16, 13, 24),
+    Panel = Color3.fromRGB(22, 18, 32),
+    Element = Color3.fromRGB(30, 25, 44),
+    Border = Color3.fromRGB(65, 50, 90),
     Text = Color3.fromRGB(245, 242, 250),
-    SubText = Color3.fromRGB(150, 143, 163),
+    SubText = Color3.fromRGB(160, 150, 175),
     Green = Color3.fromRGB(80, 220, 135),
     Red = Color3.fromRGB(240, 75, 100),
     UIScale = 1
 }
 
 local Values = {}
-local hitPattern = {"Head", "Torso", "Torso", "Torso", "LeftLeg", "LeftLeg", "RightLeg"}
-local currentPatternIndex = 1
-local renderConnection, steppedConnection, jumpConnection, inputConnection, afkConnection
-local oldFire, SimpleCastModule
+local ToggleElements = {}
+local bodyPartsList = {
+    "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso",
+    "Left Arm", "Right Arm", "Left Leg", "Right Leg",
+    "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+    "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg"
+}
+
+local renderConnection, steppedConnection, inputConnection, afkConnection
 local espFolder, tracerFolder
 local origAmbient, origBrightness, origShadows = Lighting.Ambient, Lighting.Brightness, Lighting.GlobalShadows
 local newConfigInputName = "default"
 local selectedDropdownConfig = ""
+local dropdownOpen = false
+local wlOpenState = false
+local isShiftHeld = false
+
+local originalMaterials = {}
+local originalTransparencies = {}
+
+local ActiveKey = "Not Found"
+local KeyExpiration = "Unknown"
 
 --============================================================
--- CONFIGURATION FILE SYSTEM
+-- KEY SYSTEM & EXPIRATION CHECKER
 --============================================================
 
-local CONFIG_FOLDER = "KosmosHub_Configs"
+local function FetchKeyInformation()
+    local keyFilePath = "KosmosKey.txt"
+    if readfile and isfile and isfile(keyFilePath) then
+        local content = readfile(keyFilePath)
+        if content then
+            ActiveKey = string.gsub(content, "%s+", "")
+        end
+    end
+
+    if ActiveKey ~= "" and ActiveKey ~= "Not Found" then
+        local success, response = pcall(function()
+            return game:HttpGet("https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json")
+        end)
+
+        if success and response then
+            local jsonSuccess, keysData = pcall(function()
+                return HttpService:JSONDecode(response)
+            end)
+
+            if jsonSuccess and keysData and keysData[ActiveKey] then
+                local keyInfo = keysData[ActiveKey]
+                if keyInfo.duration == "lt" or keyInfo.expires_at == nil or keyInfo.expires_at == "null" then
+                    KeyExpiration = "Lifetime (Never)"
+                else
+                    KeyExpiration = tostring(keyInfo.expires_at)
+                end
+            else
+                KeyExpiration = "Invalid Key"
+            end
+        else
+            KeyExpiration = "Connection Error"
+        end
+    else
+        KeyExpiration = "No Key Saved"
+    end
+end
+
+--============================================================
+-- CONFIGURATION SYSTEM
+--============================================================
+
+local CONFIG_FOLDER = "KoSMOHub_Configs"
 local AUTOLOAD_FILE = CONFIG_FOLDER .. "/autoload.txt"
 
 local function EnsureFolder()
@@ -152,7 +209,7 @@ local function SaveConfig(name)
             configData[k] = {R = v.R, G = v.G, B = v.B, Type = "Color3"}
         elseif typeof(v) == "EnumItem" then
             configData[k] = {Name = v.Name, EnumType = tostring(v.EnumType), Type = "Enum"}
-        else
+        elseif type(v) ~= "table" then
             configData[k] = v
         end
     end
@@ -207,10 +264,10 @@ local function GetAutoLoadConfig()
 end
 
 --============================================================
--- INSTANCE CLEANUP & CONTAINERS
+-- CONTAINERS
 --============================================================
 
-local GUI_NAME = "KOSMOS_HUB_V4_MASTER"
+local GUI_NAME = "KoSMO_HUB_PURPLE"
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -221,15 +278,15 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
 espFolder = Instance.new("Folder")
-espFolder.Name = "Kosmos_ESP_Holder"
+espFolder.Name = "KoSMO_ESP_Holder"
 espFolder.Parent = ScreenGui
 
 tracerFolder = Instance.new("Folder")
-tracerFolder.Name = "Kosmos_Tracer_Holder"
+tracerFolder.Name = "KoSMO_Tracer_Holder"
 tracerFolder.Parent = ScreenGui
 
 --============================================================
--- INTERFACE CONSTRUCTOR HELPERS
+-- UI HELPERS
 --============================================================
 
 local function Create(class, props, parent)
@@ -277,7 +334,7 @@ local function getMousePosition()
 end
 
 --============================================================
--- HUD & FOV OVERLAY COMPONENTS
+-- HUD & FOV CIRCLES
 --============================================================
 
 local FOVFrame = Create("Frame", {
@@ -285,11 +342,22 @@ local FOVFrame = Create("Frame", {
     BackgroundTransparency = 1,
     Size = UDim2.new(0, Settings.BaseFOV * 2, 0, Settings.BaseFOV * 2),
     AnchorPoint = Vector2.new(0.5, 0.5),
-    Visible = false
+    Visible = false,
+    ZIndex = 5
 }, ScreenGui)
-
 local FOVStroke = Stroke(FOVFrame, Settings.FOVColor, 1.5, 0.3)
 Corner(FOVFrame, 999)
+
+local AimAssistFOVFrame = Create("Frame", {
+    Name = "AimAssistFOVFrame",
+    BackgroundTransparency = 1,
+    Size = UDim2.new(0, Settings.AimAssistFOV * 2, 0, Settings.AimAssistFOV * 2),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Visible = false,
+    ZIndex = 5
+}, ScreenGui)
+local AimAssistFOVStroke = Stroke(AimAssistFOVFrame, Settings.AimAssistFOVColor, 1.5, 0.3)
+Corner(AimAssistFOVFrame, 999)
 
 local TargetDotFrame = Create("Frame", {
     Name = "TargetDot",
@@ -300,45 +368,24 @@ local TargetDotFrame = Create("Frame", {
     Visible = false,
     ZIndex = 10
 }, ScreenGui)
-
 Stroke(TargetDotFrame, Color3.fromRGB(0, 0, 0), 1.5, 0)
 Corner(TargetDotFrame, 999)
 
-local CrosshairFrame = Create("Frame", {
-    Name = "CrosshairCenter",
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    Size = UDim2.new(0, 1, 0, 1),
-    BackgroundTransparency = 1,
-    Visible = false,
-    ZIndex = 20
-}, ScreenGui)
-
-Create("Frame", { Size = UDim2.new(0, 14, 0, 2), Position = UDim2.new(0, -7, 0, -1), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, CrosshairFrame)
-Create("Frame", { Size = UDim2.new(0, 2, 0, 14), Position = UDim2.new(0, -1, 0, -7), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, CrosshairFrame)
-
 --============================================================
--- COMBAT & TARGETING CALCULATIONS
+-- TARGETING & FOV LOGIC (Optimized & Fixed)
 --============================================================
 
-local function getTargetPart(character, targetName)
-    if not character then return nil end
-    if targetName == "Torso" then
-        return character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-    elseif targetName == "LeftLeg" then
-        return character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftUpperLeg")
-    elseif targetName == "RightLeg" then
-        return character:FindFirstChild("Right Leg") or character:FindFirstChild("RightUpperLeg")
-    else
-        return character:FindFirstChild(targetName) or character:FindFirstChild("Head")
-    end
+local function isIgnored(player)
+    if player == LocalPlayer then return true end
+    if Settings.WhitelistCombatCheck and Settings.Whitelist[player.Name] then return true end
+    return false
 end
 
-local function isTargetVisible(part)
-    if not Settings.WallCheck then return true end
+local function isTargetVisible(part, wallCheckEnabled)
+    if not wallCheckEnabled then return true end
     local cam = getCamera()
     if not cam then return false end
-    local ignoreList = {LocalPlayer.Character, part.Parent}
-    return #cam:GetPartsObscuringTarget({part.Position}, ignoreList) == 0
+    return #cam:GetPartsObscuringTarget({part.Position}, {LocalPlayer.Character, part.Parent}) == 0
 end
 
 local function getCurrentFOV()
@@ -348,7 +395,7 @@ local function getCurrentFOV()
 
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and (not Settings.TeamCheck or player.Team ~= LocalPlayer.Team) then
+        if not isIgnored(player) and player.Character then
             local root = player.Character:FindFirstChild("HumanoidRootPart")
             if root then
                 local dist = (root.Position - cam.CFrame.Position).Magnitude
@@ -368,22 +415,40 @@ local function getBestTarget(maxDistance)
 
     local mousePos = getMousePosition()
     local bestDist, bestPart, bestScreenPos = maxDistance, nil, nil
-    local targetName = Settings.HitPatternEnabled and hitPattern[currentPatternIndex] or Settings.TargetBone
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and (not Settings.TeamCheck or player.Team ~= LocalPlayer.Team) then
+        if not isIgnored(player) and player.Character then
             local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
             if humanoid and humanoid.Health > 0 then
-                local part = getTargetPart(player.Character, targetName)
-                if part then
-                    local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local screenVec = Vector2.new(screenPos.X, screenPos.Y)
-                        local distToMouse = (screenVec - mousePos).Magnitude
-                        if distToMouse < bestDist and isTargetVisible(part) then
-                            bestDist = distToMouse
-                            bestPart = part
-                            bestScreenPos = screenVec
+                local char = player.Character
+                if Settings.CustomPart then
+                    for _, partName in ipairs(bodyPartsList) do
+                        local part = char:FindFirstChild(partName)
+                        if part and part:IsA("BasePart") then
+                            local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                                local distToMouse = (screenVec - mousePos).Magnitude
+                                if distToMouse <= bestDist and isTargetVisible(part, Settings.WallCheck) then
+                                    bestDist = distToMouse
+                                    bestPart = part
+                                    bestScreenPos = screenVec
+                                end
+                            end
+                        end
+                    end
+                else
+                    local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    if part then
+                        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                            local distToMouse = (screenVec - mousePos).Magnitude
+                            if distToMouse <= bestDist and isTargetVisible(part, Settings.WallCheck) then
+                                bestDist = distToMouse
+                                bestPart = part
+                                bestScreenPos = screenVec
+                            end
                         end
                     end
                 end
@@ -393,127 +458,215 @@ local function getBestTarget(maxDistance)
     return bestPart, bestScreenPos
 end
 
+local function getAimAssistTarget(maxDistance)
+    local cam = getCamera()
+    if not cam then return nil, nil end
+
+    local mousePos = getMousePosition()
+    local bestDist, bestPart, bestScreenPos = maxDistance, nil, nil
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if not isIgnored(player) and player.Character then
+            local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local char = player.Character
+                if Settings.AimAssistCustomPart then
+                    for _, partName in ipairs(bodyPartsList) do
+                        local part = char:FindFirstChild(partName)
+                        if part and part:IsA("BasePart") then
+                            local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                                local distToMouse = (screenVec - mousePos).Magnitude
+                                if distToMouse <= bestDist and isTargetVisible(part, Settings.AimAssistWallCheck) then
+                                    bestDist = distToMouse
+                                    bestPart = part
+                                    bestScreenPos = screenVec
+                                end
+                            end
+                        end
+                    end
+                else
+                    local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    if part then
+                        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                            local distToMouse = (screenVec - mousePos).Magnitude
+                            if distToMouse <= bestDist and isTargetVisible(part, Settings.AimAssistWallCheck) then
+                                bestDist = distToMouse
+                                bestPart = part
+                                bestScreenPos = screenVec
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestPart, bestScreenPos
+end
+
+local function AimAt(targetVector2)
+    local mousePos = getMousePosition()
+    local deltaX = (targetVector2.X - mousePos.X) * Settings.AimAssistSmoothness
+    local deltaY = (targetVector2.Y - mousePos.Y) * Settings.AimAssistSmoothness
+
+    if typeof(mousemoverel) == "function" then
+        mousemoverel(deltaX, deltaY)
+    else
+        local cam = getCamera()
+        if cam then
+            local targetWorldPos = cam:ViewportPointToRay(targetVector2.X, targetVector2.Y).Origin
+            cam.CFrame = CFrame.new(cam.CFrame.Position, targetWorldPos)
+        end
+    end
+end
+
 --============================================================
--- VISUALS & 2D SCREEN OVERLAY ESP
+-- SIMPLECAST SILENT AIM HOOK
+--============================================================
+
+task.spawn(function()
+    pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local simpleCastModule = ReplicatedStorage:WaitForChild("SimpleCast", 5)
+        if simpleCastModule then
+            local SimpleCast = require(simpleCastModule)
+            if SimpleCast and SimpleCast.Fire then
+                local originalFire = SimpleCast.Fire
+                SimpleCast.Fire = function(self, origin, direction, speed, options)
+                    if Settings.Enabled then
+                        local targetPart = getBestTarget(getCurrentFOV())
+                        if targetPart and (Settings.HitProbability >= 100 or math.random(1, 100) <= Settings.HitProbability) then
+                            direction = (targetPart.Position - origin).Unit
+                        end
+                    end
+                    return originalFire(self, origin, direction, speed, options)
+                end
+            end
+        end
+    end)
+end)
+
+--============================================================
+-- ESP SYSTEM (Optimized)
 --============================================================
 
 local function updateESP()
+    if not Settings.ESPEnabled then
+        if #espFolder:GetChildren() > 0 then espFolder:ClearAllChildren() end
+        if #tracerFolder:GetChildren() > 0 then tracerFolder:ClearAllChildren() end
+        return
+    end
+
     espFolder:ClearAllChildren()
     tracerFolder:ClearAllChildren()
-    if not Settings.ESPEnabled then return end
 
     local cam = getCamera()
     if not cam then return end
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            if not Settings.TeamCheck or player.Team ~= LocalPlayer.Team then
-                local char = player.Character
-                local root = char:FindFirstChild("HumanoidRootPart")
-                local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+            local char = player.Character
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local humanoid = char:FindFirstChildWhichIsA("Humanoid")
 
-                if root and humanoid and humanoid.Health > 0 then
-                    local head = char:FindFirstChild("Head") or root
-                    local headPos, onScreen1 = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 1.2, 0))
-                    local legPos, onScreen2 = cam:WorldToViewportPoint(root.Position - Vector3.new(0, 3.2, 0))
+            if root and humanoid and humanoid.Health > 0 then
+                local head = char:FindFirstChild("Head") or root
+                local headPos, onScreen1 = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 1.2, 0))
+                local legPos, onScreen2 = cam:WorldToViewportPoint(root.Position - Vector3.new(0, 3.2, 0))
 
-                    if onScreen1 or onScreen2 then
-                        local boxHeight = math.abs(headPos.Y - legPos.Y)
-                        local boxWidth = boxHeight * 0.65
-                        local boxPosX = headPos.X - (boxWidth / 2)
-                        local boxPosY = headPos.Y
+                if onScreen1 or onScreen2 then
+                    local boxHeight = math.abs(headPos.Y - legPos.Y)
+                    local boxWidth = boxHeight * 0.65
+                    local boxPosX = headPos.X - (boxWidth / 2)
+                    local boxPosY = headPos.Y
 
-                        -- 1. Tracers
-                        if Settings.ESPTracers then
-                            local line = Instance.new("Frame")
-                            line.BorderSizePixel = 0
-                            line.BackgroundColor3 = Settings.TracerColor
-                            line.AnchorPoint = Vector2.new(0.5, 0.5)
+                    if Settings.ESPTracers then
+                        local line = Instance.new("Frame")
+                        line.BorderSizePixel = 0
+                        line.BackgroundColor3 = Settings.TracerColor
+                        line.AnchorPoint = Vector2.new(0.5, 0.5)
 
-                            local startPos = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
-                            local targetVec = Vector2.new(headPos.X, legPos.Y)
-                            local distance = (targetVec - startPos).Magnitude
-                            local angle = math.atan2(targetVec.Y - startPos.Y, targetVec.X - startPos.X)
+                        local startPos = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
+                        local targetVec = Vector2.new(headPos.X, legPos.Y)
+                        local distance = (targetVec - startPos).Magnitude
+                        local angle = math.atan2(targetVec.Y - startPos.Y, targetVec.X - startPos.X)
 
-                            line.Size = UDim2.new(0, distance, 0, 1.5)
-                            line.Position = UDim2.new(0, (startPos.X + targetVec.X) / 2, 0, (startPos.Y + targetVec.Y) / 2)
-                            line.Rotation = math.deg(angle)
-                            line.Parent = tracerFolder
-                        end
+                        line.Size = UDim2.new(0, distance, 0, 1.5)
+                        line.Position = UDim2.new(0, (startPos.X + targetVec.X) / 2, 0, (startPos.Y + targetVec.Y) / 2)
+                        line.Rotation = math.deg(angle)
+                        line.Parent = tracerFolder
+                    end
 
-                        -- 2. Chams Highlight
-                        if Settings.ESPChams then
-                            local highlight = Instance.new("Highlight")
-                            highlight.Adornee = char
-                            highlight.FillColor = Settings.ChamColor
-                            highlight.FillTransparency = 0.5
-                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            highlight.OutlineTransparency = 0
-                            highlight.Parent = espFolder
-                        end
+                    if Settings.ESPChams then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Adornee = char
+                        highlight.FillColor = Settings.ChamColor
+                        highlight.FillTransparency = 0.5
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = espFolder
+                    end
 
-                        -- 3. 2D Bounding Box
-                        if Settings.ESPBoxes then
-                            local box = Instance.new("Frame")
-                            box.Size = UDim2.fromOffset(boxWidth, boxHeight)
-                            box.Position = UDim2.fromOffset(boxPosX, boxPosY)
-                            box.BackgroundTransparency = 1
-                            box.Parent = espFolder
-                            Stroke(box, Settings.ESPColor, 1.5, 0)
-                        end
+                    if Settings.ESPBoxes then
+                        local box = Instance.new("Frame")
+                        box.Size = UDim2.fromOffset(boxWidth, boxHeight)
+                        box.Position = UDim2.fromOffset(boxPosX, boxPosY)
+                        box.BackgroundTransparency = 1
+                        box.Parent = espFolder
+                        Stroke(box, Settings.ESPColor, 1.5, 0)
+                    end
 
-                        -- 4. Player Name
-                        if Settings.ESPNames then
-                            local nameLbl = Instance.new("TextLabel")
-                            nameLbl.Size = UDim2.fromOffset(200, 16)
-                            nameLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY - 18)
-                            nameLbl.BackgroundTransparency = 1
-                            nameLbl.Text = player.DisplayName .. " (@" .. player.Name .. ")"
-                            nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-                            nameLbl.TextSize = 11
-                            nameLbl.Font = Enum.Font.GothamBold
-                            nameLbl.TextStrokeTransparency = 0.2
-                            nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-                            nameLbl.Parent = espFolder
-                        end
+                    if Settings.ESPNames then
+                        local nameLbl = Instance.new("TextLabel")
+                        nameLbl.Size = UDim2.fromOffset(200, 16)
+                        nameLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY - 18)
+                        nameLbl.BackgroundTransparency = 1
+                        nameLbl.Text = player.DisplayName .. " (@" .. player.Name .. ")"
+                        nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        nameLbl.TextSize = 11
+                        nameLbl.Font = Enum.Font.GothamBold
+                        nameLbl.TextStrokeTransparency = 0.2
+                        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
+                        nameLbl.Parent = espFolder
+                    end
 
-                        -- 5. Distance Indicator
-                        if Settings.ESPDistance then
-                            local dist = math.floor((root.Position - cam.CFrame.Position).Magnitude)
-                            local distLbl = Instance.new("TextLabel")
-                            distLbl.Size = UDim2.fromOffset(200, 14)
-                            distLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY + boxHeight + 2)
-                            distLbl.BackgroundTransparency = 1
-                            distLbl.Text = "[" .. tostring(dist) .. "m]"
-                            distLbl.TextColor3 = Settings.Accent2
-                            distLbl.TextSize = 10
-                            distLbl.Font = Enum.Font.GothamBold
-                            distLbl.TextStrokeTransparency = 0.2
-                            distLbl.TextXAlignment = Enum.TextXAlignment.Center
-                            distLbl.Parent = espFolder
-                        end
+                    if Settings.ESPDistance then
+                        local dist = math.floor((root.Position - cam.CFrame.Position).Magnitude)
+                        local distLbl = Instance.new("TextLabel")
+                        distLbl.Size = UDim2.fromOffset(200, 14)
+                        distLbl.Position = UDim2.fromOffset(headPos.X - 100, boxPosY + boxHeight + 2)
+                        distLbl.BackgroundTransparency = 1
+                        distLbl.Text = "[" .. tostring(dist) .. "m]"
+                        distLbl.TextColor3 = Settings.Accent2
+                        distLbl.TextSize = 10
+                        distLbl.Font = Enum.Font.GothamBold
+                        distLbl.TextStrokeTransparency = 0.2
+                        distLbl.TextXAlignment = Enum.TextXAlignment.Center
+                        distLbl.Parent = espFolder
+                    end
 
-                        -- 6. Health Bar
-                        if Settings.ESPHealth then
-                            local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                            local barHeight = boxHeight * healthPct
+                    if Settings.ESPHealth then
+                        local healthPct = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                        local barHeight = boxHeight * healthPct
 
-                            local healthBg = Instance.new("Frame")
-                            healthBg.Size = UDim2.fromOffset(4, boxHeight)
-                            healthBg.Position = UDim2.fromOffset(boxPosX - 7, boxPosY)
-                            healthBg.BackgroundColor3 = Color3.fromRGB(20, 18, 25)
-                            healthBg.BorderSizePixel = 0
-                            healthBg.Parent = espFolder
-                            Corner(healthBg, 2)
+                        local healthBg = Instance.new("Frame")
+                        healthBg.Size = UDim2.fromOffset(4, boxHeight)
+                        healthBg.Position = UDim2.fromOffset(boxPosX - 7, boxPosY)
+                        healthBg.BackgroundColor3 = Color3.fromRGB(20, 22, 20)
+                        healthBg.BorderSizePixel = 0
+                        healthBg.Parent = espFolder
+                        Corner(healthBg, 2)
 
-                            local healthFill = Instance.new("Frame")
-                            healthFill.Size = UDim2.fromOffset(4, barHeight)
-                            healthFill.Position = UDim2.fromOffset(boxPosX - 7, boxPosY + (boxHeight - barHeight))
-                            healthFill.BackgroundColor3 = Settings.Red:Lerp(Settings.Green, healthPct)
-                            healthFill.BorderSizePixel = 0
-                            healthFill.Parent = espFolder
-                            Corner(healthFill, 2)
-                        end
+                        local healthFill = Instance.new("Frame")
+                        healthFill.Size = UDim2.fromOffset(4, barHeight)
+                        healthFill.Position = UDim2.fromOffset(boxPosX - 7, boxPosY + (boxHeight - barHeight))
+                        healthFill.BackgroundColor3 = Settings.Red:Lerp(Settings.Green, healthPct)
+                        healthFill.BorderSizePixel = 0
+                        healthFill.Parent = espFolder
+                        Corner(healthFill, 2)
                     end
                 end
             end
@@ -522,121 +675,21 @@ local function updateESP()
 end
 
 --============================================================
--- EXTENDED WEAPON MODIFIERS ENGINE
+-- RUNTIME CONNECTIONS (Optimized)
 --============================================================
-
-local function applyWeaponModifiers()
-    if not LocalPlayer.Character then return end
-    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-    if not tool then return end
-
-    -- 1. Scansione e modifica dei ModuleScript (Framework tipo FE Gunkit, ACS, Carbon)
-    for _, item in ipairs(tool:GetDescendants()) do
-        if item:IsA("ModuleScript") then
-            local success, content = pcall(function() return require(item) end)
-            if success and type(content) == "table" then
-                -- No Recoil
-                if Settings.NoRecoil then
-                    task.spawn(function()
-                        while task.wait(0.1) do
-                            if Settings.NoRecoil then
-                                local pScripts = LocalPlayer:FindFirstChildWhichIsA("PlayerScripts")
-                                if pScripts then
-                                    for _, scriptObj in ipairs(pScripts:GetDescendants()) do
-                                        if scriptObj.Name == "bobbing_global_scale" and scriptObj:IsA("ValueBase") then
-                                            scriptObj.Value = 0
-                                        end
-                                    end
-                                end
-                            else
-                                break
-                            end
-                        end
-                    end)
-                end
-                
-                -- No Spread
-                if Settings.NoSpread then
-                    if content.Spread ~= nil then content.Spread = 0 end
-                    if content.spread ~= nil then content.spread = 0 end
-                    if content.Accuracy ~= nil then content.Accuracy = 1 end
-                    if content.Inaccuracy ~= nil then content.Inaccuracy = 0 end
-                end
-                
-                -- Rapid Fire / Max RPM
-                if Settings.RapidFire then
-                    if content.FireRate ~= nil then content.FireRate = 0.01 end
-                    if content.fireRate ~= nil then content.fireRate = 0.01 end
-                    if content.Cooldown ~= nil then content.Cooldown = 0.01 end
-                    if content.RPM ~= nil then content.RPM = 2500 end
-                end
-                
-                -- Always Auto
-                if Settings.AlwaysAuto then
-                    if content.Auto ~= nil then content.Auto = true end
-                    if content.Mode ~= nil then content.Mode = "Auto" end
-                    if content.FireMode ~= nil then content.FireMode = "Auto" end
-                end
-
-                -- Infinite Ammo
-                if Settings.InfiniteAmmo then
-                    if content.Ammo ~= nil then content.Ammo = 999 end
-                    if content.MaxAmmo ~= nil then content.MaxAmmo = 999 end
-                    if content.StoredAmmo ~= nil then content.StoredAmmo = 999 end
-                    if content.ClipSize ~= nil then content.ClipSize = 999 end
-                    if content.AmmoInClip ~= nil then content.AmmoInClip = 999 end
-                end
-
-                -- Instant Reload
-                if Settings.InstantReload then
-                    if content.ReloadTime ~= nil then content.ReloadTime = 0 end
-                    if content.ReloadSpeed ~= nil then content.ReloadSpeed = 100 end
-                end
-            end
-        
-        -- 2. Scansione ValueObject tradizionali (IntValue, NumberValue) interni al Tool
-        elseif item:IsA("ValueBase") then
-            local name = string.lower(item.Name)
-            if Settings.InfiniteAmmo and (name:find("ammo") or name:find("clip") or name:find("storedammo")) then
-                if item:IsA("IntValue") or item:IsA("NumberValue") then 
-                    item.Value = 999 
-                end
-            end
-        end
-    end
-end
-
---============================================================
--- RUNTIME CONNECTIONS & HOOKS
---============================================================
-
-jumpConnection = UserInputService.JumpRequest:Connect(function()
-    if Settings.InfiniteJump and LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
 
 steppedConnection = RunService.Stepped:Connect(function()
-    if LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
 
-        if humanoid then
-            if Settings.EnableWalkSpeed then humanoid.WalkSpeed = Settings.WalkSpeed end
-            if Settings.EnableJumpPower then humanoid.UseJumpPower = true; humanoid.JumpPower = Settings.JumpPower end
-            if Settings.EnableHipHeight then humanoid.HipHeight = Settings.CustomHipHeight end
-            if Settings.BHop and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+        if humanoid and Settings.EnableWalkSpeed then
+            humanoid.WalkSpeed = Settings.WalkSpeed
         end
 
         local cam = getCamera()
-        if cam and Settings.EnableCustomFOV then
-            cam.FieldOfView = Settings.CustomFOV
-        end
-
-        if Settings.FlyEnabled and root then
+        if Settings.FlyEnabled and root and cam then
             local flyVec = Vector3.zero
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec = flyVec + cam.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec = flyVec - cam.CFrame.LookVector end
@@ -655,7 +708,7 @@ steppedConnection = RunService.Stepped:Connect(function()
             root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
         end
 
-        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+        for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 if Settings.Noclip or Settings.FlyEnabled then
                     part.CanCollide = false
@@ -666,19 +719,74 @@ steppedConnection = RunService.Stepped:Connect(function()
             end
         end
     end
-end)
 
-renderConnection = RunService.RenderStepped:Connect(function()
-    if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
     if Settings.Fullbright then
         Lighting.Ambient = Color3.new(1,1,1)
         Lighting.Brightness = 2
         Lighting.GlobalShadows = false
+    else
+        Lighting.Ambient = origAmbient
+        Lighting.Brightness = origBrightness
+        Lighting.GlobalShadows = origShadows
     end
 
-    CrosshairFrame.Visible = Settings.Crosshair
+    if Settings.FPSBoost then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                if not originalMaterials[obj] then originalMaterials[obj] = obj.Material end
+                obj.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    else
+        for obj, mat in pairs(originalMaterials) do
+            if obj and obj.Parent then obj.Material = mat end
+        end
+        originalMaterials = {}
+    end
+
+    if Settings.NoDecals then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                if originalTransparencies[obj] == nil then originalTransparencies[obj] = obj.Transparency end
+                obj.Transparency = 1
+            end
+        end
+    else
+        for obj, trans in pairs(originalTransparencies) do
+            if obj and obj.Parent then obj.Transparency = trans end
+        end
+        originalTransparencies = {}
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
+        isShiftHeld = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
+        isShiftHeld = false
+        local activeFOV = getCurrentFOV()
+        local mousePos = getMousePosition()
+        if Settings.Enabled and Settings.ShowFOV then
+            FOVFrame.Size = UDim2.new(0, activeFOV * 2, 0, activeFOV * 2)
+            FOVFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+        end
+    end
+end)
+
+renderConnection = RunService.RenderStepped:Connect(function()
+    if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
+    if Settings.AimAssistRainbowFOV then Settings.AimAssistFOVColor = Color3.fromHSV((tick() % 5) / 5, 0.8, 1) end
+
     local activeFOV = getCurrentFOV()
     local mousePos = getMousePosition()
+
+    if isShiftHeld then
+        activeFOV = getCurrentFOV()
+    end
 
     if Settings.Enabled and Settings.ShowFOV then
         FOVFrame.Visible = true
@@ -689,19 +797,34 @@ renderConnection = RunService.RenderStepped:Connect(function()
         FOVFrame.Visible = false
     end
 
-    local bestPart, bestScreenPos = getBestTarget(activeFOV)
-    if Settings.Enabled and Settings.ShowDot and bestScreenPos then
+    if Settings.AimAssistEnabled and Settings.AimAssistShowFOV then
+        AimAssistFOVFrame.Visible = true
+        AimAssistFOVFrame.Size = UDim2.new(0, Settings.AimAssistFOV * 2, 0, Settings.AimAssistFOV * 2)
+        AimAssistFOVFrame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+        AimAssistFOVStroke.Color = Settings.AimAssistFOVColor
+    else
+        AimAssistFOVFrame.Visible = false
+    end
+
+    local _, bestScreenPos = getBestTarget(activeFOV)
+    if Settings.ShowDot and bestScreenPos then
         TargetDotFrame.Visible = true
         TargetDotFrame.Position = UDim2.new(0, bestScreenPos.X, 0, bestScreenPos.Y)
+        TargetDotFrame.BackgroundColor3 = Settings.TargetColor
     else
         TargetDotFrame.Visible = false
     end
 
-    applyWeaponModifiers()
+    if Settings.AimAssistEnabled then
+        local _, aaScreenPos = getAimAssistTarget(Settings.AimAssistFOV)
+        if aaScreenPos then
+            AimAt(aaScreenPos)
+        end
+    end
+
     updateESP()
 end)
 
--- Anti-AFK Handler
 afkConnection = LocalPlayer.Idled:Connect(function()
     if Settings.AntiAFK then
         VirtualUser:Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
@@ -710,59 +833,18 @@ afkConnection = LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- Universal Gun Engine Hooking (Aggiornato con Silent Aim + Wallbang + MultiShot)
-pcall(function()
-    SimpleCastModule = require(ReplicatedStorage:FindFirstChild("SimpleCast", true))
-    if SimpleCastModule and SimpleCastModule.Fire then
-        oldFire = SimpleCastModule.Fire
-        SimpleCastModule.Fire = function(self, origin, direction, speed, options)
-            if Settings.Enabled then
-                local roll = math.random(1, 100)
-                if roll <= Settings.HitProbability then
-                    local activeFOV = getCurrentFOV()
-                    local targetPart, _ = getBestTarget(activeFOV)
-                    if targetPart then
-                        direction = (targetPart.Position - origin).Unit
-                        if Settings.HitPatternEnabled then
-                            currentPatternIndex = (currentPatternIndex % #hitPattern) + 1
-                        end
-                    end
-                end
-            end
-
-            -- Modifica Raycast per Wallbang (I proiettili ignorano la geometria della mappa)
-            if Settings.Wallbang and options and typeof(options) == "table" and options.RaycastParams then
-                options.RaycastParams.FilterType = Enum.RaycastFilterType.Include
-            end
-
-            -- Multi-Shot / Shotgun Mod (Spara proiettili multipli contemporaneamente)
-            if Settings.MultiShot then
-                for i = 1, (Settings.ShotCount - 1) do
-                    local spreadOffset = Vector3.new(
-                        (math.random() - 0.5) * 0.04,
-                        (math.random() - 0.5) * 0.04,
-                        (math.random() - 0.5) * 0.04
-                    )
-                    oldFire(self, origin, (direction + spreadOffset).Unit, speed, options)
-                end
-            end
-
-            return oldFire(self, origin, direction, speed, options)
-        end
-    end
-end)
-
 local function UnloadScript()
     if renderConnection then renderConnection:Disconnect() end
     if steppedConnection then steppedConnection:Disconnect() end
-    if jumpConnection then jumpConnection:Disconnect() end
     if inputConnection then inputConnection:Disconnect() end
     if afkConnection then afkConnection:Disconnect() end
-    if SimpleCastModule and oldFire then SimpleCastModule.Fire = oldFire end
     
     Lighting.Ambient = origAmbient
     Lighting.Brightness = origBrightness
     Lighting.GlobalShadows = origShadows
+
+    for obj, mat in pairs(originalMaterials) do if obj and obj.Parent then obj.Material = mat end end
+    for obj, trans in pairs(originalTransparencies) do if obj and obj.Parent then obj.Transparency = trans end end
 
     if espFolder then espFolder:Destroy() end
     if tracerFolder then tracerFolder:Destroy() end
@@ -770,13 +852,13 @@ local function UnloadScript()
 end
 
 --============================================================
--- ANIMATED INITIALIZATION LOADING SCREEN
+-- LOADING SCREEN
 --============================================================
 
 local function ShowLoadingScreen(onComplete)
     local LoadingFrame = Create("Frame", {
         Name = "LoadingFrame",
-        Size = UDim2.fromOffset(380, 220),
+        Size = UDim2.fromOffset(400, 220),
         Position = UDim2.fromScale(0.5, 0.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Settings.Background,
@@ -785,69 +867,65 @@ local function ShowLoadingScreen(onComplete)
     }, ScreenGui)
 
     Corner(LoadingFrame, 12)
-    Stroke(LoadingFrame, Settings.Accent, 1.5)
+    Stroke(LoadingFrame, Settings.Accent, 1.8)
 
-    local Title = Label(LoadingFrame, "KOSMOS HUB V4", 22, Settings.Text, Enum.Font.GothamBlack)
+    local Title = Label(LoadingFrame, "KoSMO HUB", 24, Settings.Text, Enum.Font.GothamBlack)
     Title.Position = UDim2.fromOffset(0, 25)
     Title.Size = UDim2.new(1, 0, 0, 25)
     Title.TextXAlignment = Enum.TextXAlignment.Center
 
-    local Subtitle = Label(LoadingFrame, "EXTENDED UNRESTRICTED EDITION", 9, Settings.Accent2, Enum.Font.GothamBold)
-    Subtitle.Position = UDim2.fromOffset(0, 52)
+    local Subtitle = Label(LoadingFrame, "PROFESSIONAL PURPLE EDITION", 9, Settings.Accent2, Enum.Font.GothamBold)
+    Subtitle.Position = UDim2.fromOffset(0, 55)
     Subtitle.Size = UDim2.new(1, 0, 0, 16)
     Subtitle.TextXAlignment = Enum.TextXAlignment.Center
 
-    local StatusLbl = Label(LoadingFrame, "Caricamento moduli armi & balistica...", 10, Settings.SubText, Enum.Font.GothamMedium)
+    local StatusLbl = Label(LoadingFrame, "Verifying license...", 10, Settings.SubText, Enum.Font.GothamMedium)
     StatusLbl.Position = UDim2.fromOffset(0, 105)
     StatusLbl.Size = UDim2.new(1, 0, 0, 20)
     StatusLbl.TextXAlignment = Enum.TextXAlignment.Center
 
     local BarBackground = Create("Frame", {
-        Size = UDim2.new(0.8, 0, 0, 8),
+        Size = UDim2.new(0.8, 0, 0, 6),
         Position = UDim2.new(0.1, 0, 0, 140),
         BackgroundColor3 = Settings.Element,
         BorderSizePixel = 0
     }, LoadingFrame)
-    Corner(BarBackground, 4)
+    Corner(BarBackground, 3)
 
     local BarFill = Create("Frame", {
         Size = UDim2.new(0, 0, 1, 0),
         BackgroundColor3 = Settings.Accent,
         BorderSizePixel = 0
     }, BarBackground)
-    Corner(BarFill, 4)
+    Corner(BarFill, 3)
 
     task.spawn(function()
+        FetchKeyInformation()
         local steps = {
-            {pct = 0.2, text = "Inizializzazione grafica & UI..."},
-            {pct = 0.45, text = "Caricamento Silent Aim & FOV Engine..."},
-            {pct = 0.70, text = "Configurazione Weapon Modifiers & Wallbang..."},
-            {pct = 0.90, text = "Setup Player, Misc & Settings..."},
-            {pct = 1.00, text = "Inizializzazione completata!"}
+            {pct = 0.3, text = "Loading KoSMO Advanced UI..."},
+            {pct = 0.7, text = "Setting up Silent & Aim Assist Engine..."},
+            {pct = 1.0, text = "Ready!"}
         }
-
         for _, step in ipairs(steps) do
-            Tween(BarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
+            Tween(BarFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
             StatusLbl.Text = step.text
             task.wait(0.35)
         end
-
         task.wait(0.2)
-        Tween(LoadingFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+        Tween(LoadingFrame, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
         task.wait(0.3)
         LoadingFrame:Destroy()
-
         if onComplete then onComplete() end
     end)
 end
 
 --============================================================
--- MAIN DASHBOARD INTERFACE
+-- MAIN DASHBOARD
 --============================================================
 
 local Main = Create("Frame", {
     Name = "Main",
-    Size = UDim2.fromOffset(1050, 680),
+    Size = UDim2.fromOffset(1020, 650),
     Position = UDim2.fromScale(0.5, 0.5),
     AnchorPoint = Vector2.new(0.5, 0.5),
     BackgroundColor3 = Settings.Background,
@@ -857,12 +935,11 @@ local Main = Create("Frame", {
     ZIndex = 10
 }, ScreenGui)
 
-Corner(Main, 12)
-Stroke(Main, Settings.Border, 1)
-
+Corner(Main, 10)
+Stroke(Main, Settings.Border, 1.2)
 local MainScale = Create("UIScale", { Scale = Settings.UIScale }, Main)
 
--- Window Dragging Mechanics
+-- Dragging Mechanics
 do
     local dragging, dragStart, startPosition
     Main.InputBegan:Connect(function(input)
@@ -872,11 +949,9 @@ do
             startPosition = Main.Position
         end
     end)
-
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
@@ -888,56 +963,49 @@ do
     end)
 end
 
--- Sidebar Navigation Setup
-local Sidebar = Create("Frame", { Size = UDim2.new(0, 220, 1, 0), BackgroundColor3 = Settings.Sidebar, BorderSizePixel = 0 }, Main)
-Corner(Sidebar, 12)
+-- Sidebar
+local Sidebar = Create("Frame", { Size = UDim2.new(0, 215, 1, 0), BackgroundColor3 = Settings.Sidebar, BorderSizePixel = 0 }, Main)
+Corner(Sidebar, 10)
 
-local LogoFrame = Create("Frame", { Size = UDim2.fromOffset(190, 70), Position = UDim2.fromOffset(15, 10), BackgroundTransparency = 1 }, Sidebar)
-local LogoGlow = Create("Frame", { Size = UDim2.fromOffset(42, 42), Position = UDim2.fromOffset(5, 13), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, LogoFrame)
-Corner(LogoGlow, 12)
-local LogoText = Label(LogoGlow, "K", 21, Color3.new(1,1,1), Enum.Font.GothamBlack)
-LogoText.Size = UDim2.fromScale(1,1)
-LogoText.TextXAlignment = Enum.TextXAlignment.Center
+local BrandContainer = Create("Frame", { Size = UDim2.fromOffset(185, 65), Position = UDim2.fromOffset(15, 15), BackgroundTransparency = 1 }, Sidebar)
+local BrandLabel = Label(BrandContainer, "KoSMO", 20, Settings.Text, Enum.Font.GothamBlack)
+BrandLabel.Position = UDim2.fromOffset(0, 5)
+BrandLabel.Size = UDim2.new(1, 0, 0, 22)
 
-local Brand = Label(LogoFrame, "KOSMOS", 17, Settings.Text, Enum.Font.GothamBlack)
-Brand.Position = UDim2.fromOffset(58, 9)
-Brand.Size = UDim2.new(1,-60,0,25)
-
-local BrandVersion = Label(LogoFrame, "UNRESTRICTED • V4", 8, Settings.Accent2, Enum.Font.GothamBold)
-BrandVersion.Position = UDim2.fromOffset(58, 34)
-BrandVersion.Size = UDim2.new(1,-60,0,18)
+local BrandSub = Label(BrandContainer, "PROFESSIONAL PURPLE", 8, Settings.Accent2, Enum.Font.GothamBold)
+BrandSub.Position = UDim2.fromOffset(0, 30)
+BrandSub.Size = UDim2.new(1, 0, 0, 16)
 
 local Navigation = Create("ScrollingFrame", {
-    Size = UDim2.new(1,-20,1,-105),
-    Position = UDim2.fromOffset(10,90),
+    Size = UDim2.new(1, -16, 1, -95),
+    Position = UDim2.fromOffset(8, 85),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 2,
     ScrollBarImageColor3 = Settings.Accent
 }, Sidebar)
 
-local NavLayout = Create("UIListLayout", { Padding = UDim.new(0,5), SortOrder = Enum.SortOrder.LayoutOrder }, Navigation)
+local NavLayout = Create("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, Navigation)
 NavLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Navigation.CanvasSize = UDim2.new(0, 0, 0, NavLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- Topbar & Search
-local TopBar = Create("Frame", { Size = UDim2.new(1,-220,0,75), Position = UDim2.fromOffset(220,0), BackgroundColor3 = Settings.Background, BorderSizePixel = 0 }, Main)
+-- Topbar
+local TopBar = Create("Frame", { Size = UDim2.new(1, -215, 0, 75), Position = UDim2.fromOffset(215, 0), BackgroundColor3 = Settings.Background, BorderSizePixel = 0 }, Main)
+local PageTitle = Label(TopBar, "Dashboard", 18, Settings.Text, Enum.Font.GothamBold)
+PageTitle.Position = UDim2.fromOffset(25, 14)
+PageTitle.Size = UDim2.fromOffset(400, 24)
 
-local PageTitle = Label(TopBar, "Dashboard", 19, Settings.Text, Enum.Font.GothamBold)
-PageTitle.Position = UDim2.fromOffset(25,10)
-PageTitle.Size = UDim2.fromOffset(400,28)
-
-local PageSub = Label(TopBar, "KOSMOS CONTROL CENTER", 9, Settings.SubText, Enum.Font.GothamMedium)
-PageSub.Position = UDim2.fromOffset(25,38)
-PageSub.Size = UDim2.fromOffset(400,18)
+local PageSub = Label(TopBar, "Control Center", 9, Settings.SubText, Enum.Font.GothamMedium)
+PageSub.Position = UDim2.fromOffset(25, 40)
+PageSub.Size = UDim2.fromOffset(400, 16)
 
 local Search = Create("TextBox", {
-    Size = UDim2.fromOffset(260,35),
-    Position = UDim2.new(1,-285,0,20),
+    Size = UDim2.fromOffset(240, 32),
+    Position = UDim2.new(1, -265, 0, 21),
     BackgroundColor3 = Settings.Element,
     BorderSizePixel = 0,
-    PlaceholderText = "Cerca funzioni...",
+    PlaceholderText = "Search feature...",
     PlaceholderColor3 = Settings.SubText,
     Text = "",
     TextColor3 = Settings.Text,
@@ -945,31 +1013,52 @@ local Search = Create("TextBox", {
     Font = Enum.Font.GothamMedium,
     ClearTextOnFocus = false
 }, TopBar)
-Corner(Search, 7)
+Corner(Search, 6)
 Stroke(Search, Settings.Border, 1)
 
 local Content = Create("ScrollingFrame", {
-    Size = UDim2.new(1,-245,1,-95),
-    Position = UDim2.fromOffset(232,82),
+    Size = UDim2.new(1, -235, 1, -90),
+    Position = UDim2.fromOffset(225, 80),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
     ScrollBarImageColor3 = Settings.Accent
 }, Main)
 
-local ContentLayout = Create("UIListLayout", { Padding = UDim.new(0,9), SortOrder = Enum.SortOrder.LayoutOrder }, Content)
+local ContentLayout = Create("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, Content)
 ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Content.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
 end)
 
+-- Global Screen-level Dropdown Container for Whitelist
+local WLListGlobal = Create("ScrollingFrame", {
+    Name = "WLListGlobal",
+    Size = UDim2.new(0, 165, 0, 120),
+    BackgroundColor3 = Settings.Panel,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 1000,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    ScrollBarThickness = 2
+}, ScreenGui)
+Corner(WLListGlobal, 6)
+Stroke(WLListGlobal, Settings.Border, 1)
+
+local WLLayoutGlobal = Create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, WLListGlobal)
+WLLayoutGlobal:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    WLListGlobal.CanvasSize = UDim2.new(0, 0, 0, WLLayoutGlobal.AbsoluteContentSize.Y)
+end)
+
 --============================================================
--- INTERFACE CONTROL BUILDERS
+-- UI BUILDERS & COMPONENTS
 --============================================================
 
 local CurrentControls = {}
 local SelectPage
 
 local function ClearContent()
+    WLListGlobal.Visible = false
+    wlOpenState = false
     for _, obj in ipairs(Content:GetChildren()) do
         if not obj:IsA("UIListLayout") then obj:Destroy() end
     end
@@ -980,42 +1069,53 @@ local function RegisterControl(object, name)
     table.insert(CurrentControls, { Object = object, Name = string.lower(name) })
 end
 
-local function Section(title, description)
-    local Frame = Create("Frame", { Size = UDim2.new(1,-5,0,58), BackgroundColor3 = Settings.Panel, BorderSizePixel = 0 }, Content)
-    Corner(Frame, 7)
+local function Section(title, desc)
+    local Frame = Create("Frame", { Size = UDim2.new(1, -5, 0, 54), BackgroundColor3 = Settings.Panel, BorderSizePixel = 0 }, Content)
+    Corner(Frame, 8)
     Stroke(Frame, Settings.Border, 1)
     
-    local Title = Label(Frame, title, 12, Settings.Text, Enum.Font.GothamBold)
-    Title.Position = UDim2.fromOffset(14,6)
-    Title.Size = UDim2.new(1,-28,0,23)
+    local Txt = Label(Frame, title, 11, Settings.Text, Enum.Font.GothamBold)
+    Txt.Position = UDim2.fromOffset(14, 8)
+    Txt.Size = UDim2.new(1, -28, 0, 20)
 
-    local Desc = Label(Frame, description or "", 9, Settings.SubText)
-    Desc.Position = UDim2.fromOffset(14,29)
-    Desc.Size = UDim2.new(1,-28,0,18)
+    local Dsc = Label(Frame, desc or "", 9, Settings.SubText)
+    Dsc.Position = UDim2.fromOffset(14, 28)
+    Dsc.Size = UDim2.new(1, -28, 0, 18)
     return Frame
 end
 
 local function Toggle(name, default, callback)
     Values[name] = default
-    local Row = Create("TextButton", { Size = UDim2.new(1,-5,0,42), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, Content)
-    Corner(Row, 6)
+    local Row = Create("TextButton", { Size = UDim2.new(1, -5, 0, 42), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, Content)
+    Corner(Row, 8)
 
-    local TextLabel = Label(Row, name, 10, Settings.Text)
-    TextLabel.Position = UDim2.fromOffset(12,0)
-    TextLabel.Size = UDim2.new(1,-75,1,0)
+    local Txt = Label(Row, name, 10, Settings.Text)
+    Txt.Position = UDim2.fromOffset(14, 0)
+    Txt.Size = UDim2.new(1, -70, 1, 0)
 
-    local Switch = Create("Frame", { Size = UDim2.fromOffset(38,20), Position = UDim2.new(1,-52,0.5,-10), BackgroundColor3 = default and Settings.Accent or Color3.fromRGB(45,40,52), BorderSizePixel = 0 }, Row)
+    local Switch = Create("Frame", { Size = UDim2.fromOffset(38, 20), Position = UDim2.new(1, -52, 0.5, -10), BackgroundColor3 = default and Settings.Accent or Color3.fromRGB(45, 38, 60), BorderSizePixel = 0 }, Row)
     Corner(Switch, 20)
 
-    local Knob = Create("Frame", { Size = UDim2.fromOffset(14,14), Position = default and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0 }, Switch)
-    Corner(Knob, 20)
+    local Knob = Create("Frame", { Size = UDim2.fromOffset(14, 14), Position = default and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0 }, Switch)
+    Corner(Knob, 14)
+
+    local function updateVisual(ena)
+        Values[name] = ena
+        Tween(Switch, TweenInfo.new(0.15), { BackgroundColor3 = ena and Settings.Accent or Color3.fromRGB(45, 38, 60) }):Play()
+        Tween(Knob, TweenInfo.new(0.15), { Position = ena and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7) }):Play()
+    end
+
+    ToggleElements[name] = {
+        SetState = function(ena)
+            updateVisual(ena)
+            if callback then callback(ena) end
+        end
+    }
 
     Row.MouseButton1Click:Connect(function()
-        Values[name] = not Values[name]
-        local enabled = Values[name]
-        Tween(Switch, TweenInfo.new(0.18), { BackgroundColor3 = enabled and Settings.Accent or Color3.fromRGB(45,40,52) }):Play()
-        Tween(Knob, TweenInfo.new(0.18, Enum.EasingStyle.Quint), { Position = enabled and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7) }):Play()
-        if callback then callback(enabled) end
+        local newState = not Values[name]
+        updateVisual(newState)
+        if callback then callback(newState) end
     end)
     RegisterControl(Row, name)
     return Row
@@ -1023,60 +1123,54 @@ end
 
 local function Slider(name, min, max, default, suffix, callback)
     Values[name] = default
-    local Row = Create("Frame", { Size = UDim2.new(1,-5,0,60), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
-    Corner(Row, 6)
+    local Row = Create("Frame", { Size = UDim2.new(1, -5, 0, 60), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
+    Corner(Row, 8)
 
-    local Title = Label(Row, name, 10, Settings.Text)
-    Title.Position = UDim2.fromOffset(12,5)
-    Title.Size = UDim2.new(0.6,0,0,20)
+    local Txt = Label(Row, name, 10, Settings.Text)
+    Txt.Position = UDim2.fromOffset(14, 6)
+    Txt.Size = UDim2.new(0.6, 0, 0, 20)
 
-    local Value = Label(Row, tostring(default)..suffix, 10, Settings.Accent2, Enum.Font.GothamBold)
-    Value.Position = UDim2.new(0.6,0,0,5)
-    Value.Size = UDim2.new(0.4,-12,0,20)
-    Value.TextXAlignment = Enum.TextXAlignment.Right
+    local Val = Label(Row, tostring(default)..suffix, 10, Settings.Accent2, Enum.Font.GothamBold)
+    Val.Position = UDim2.new(0.6, 0, 0, 6)
+    Val.Size = UDim2.new(0.4, -14, 0, 20)
+    Val.TextXAlignment = Enum.TextXAlignment.Right
 
-    local Bar = Create("TextButton", { Size = UDim2.new(1,-24,0,5), Position = UDim2.fromOffset(12,40), BackgroundColor3 = Color3.fromRGB(45,40,53), BorderSizePixel = 0, Text = "" }, Row)
-    Corner(Bar, 5)
+    local Bar = Create("TextButton", { Size = UDim2.new(1, -28, 0, 6), Position = UDim2.fromOffset(14, 40), BackgroundColor3 = Color3.fromRGB(45, 38, 60), BorderSizePixel = 0, Text = "" }, Row)
+    Corner(Bar, 3)
 
-    local Percentage = math.clamp((default-min)/(max-min), 0, 1)
-    local Fill = Create("Frame", { Size = UDim2.new(Percentage,0,1,0), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, Bar)
-    Corner(Fill, 5)
+    local Pct = math.clamp((default - min) / (max - min), 0, 1)
+    local Fill = Create("Frame", { Size = UDim2.new(Pct, 0, 1, 0), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, Bar)
+    Corner(Fill, 3)
 
-    local Dragging = false
+    local Drag = false
     local function Update(input)
-        local pos = math.clamp((input.Position.X-Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X, 0, 1)
-        local value = math.floor(min+(max-min)*pos)
-        Values[name] = value
-        Fill.Size = UDim2.new(pos,0,1,0)
-        Value.Text = tostring(value)..suffix
-        if callback then callback(value) end
+        local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+        local val = math.floor(min + (max - min) * pos)
+        Values[name] = val
+        Fill.Size = UDim2.new(pos, 0, 1, 0)
+        Val.Text = tostring(val)..suffix
+        if callback then callback(val) end
     end
 
-    Bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true Update(input) end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if Dragging and input.UserInputType == Enum.UserInputType.MouseMovement then Update(input) end
-    end)
+    Bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then Drag = true Update(input) end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then Drag = false end end)
+    UserInputService.InputChanged:Connect(function(input) if Drag and input.UserInputType == Enum.UserInputType.MouseMovement then Update(input) end end)
     RegisterControl(Row, name)
     return Row
 end
 
 local function Keybind(name, defaultKey, callback)
     Values[name] = defaultKey
-    local Row = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
-    Corner(Row, 6)
+    local Row = Create("Frame", { Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
+    Corner(Row, 8)
 
-    local Title = Label(Row, name, 10, Settings.Text)
-    Title.Position = UDim2.fromOffset(12,0)
-    Title.Size = UDim2.new(0.6,0,1,0)
+    local Txt = Label(Row, name, 10, Settings.Text)
+    Txt.Position = UDim2.fromOffset(14, 0)
+    Txt.Size = UDim2.new(0.6, 0, 1, 0)
 
-    local Button = Create("TextButton", {
-        Size = UDim2.fromOffset(110,28),
-        Position = UDim2.new(1,-122,0.5,-14),
+    local Btn = Create("TextButton", {
+        Size = UDim2.fromOffset(110, 28),
+        Position = UDim2.new(1, -124, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
         BorderSizePixel = 0,
         Text = defaultKey and defaultKey.Name or "NONE",
@@ -1084,19 +1178,21 @@ local function Keybind(name, defaultKey, callback)
         TextSize = 9,
         Font = Enum.Font.GothamBold
     }, Row)
-    Corner(Button, 5)
-    Stroke(Button, Settings.Border, 1)
+    Corner(Btn, 6)
+    Stroke(Btn, Settings.Border, 1)
 
     local Listening = false
-    Button.MouseButton1Click:Connect(function()
+    Btn.MouseButton1Click:Connect(function()
         Listening = true
-        Button.Text = "PREMI TASTO..."
+        Btn.Text = "PRESS KEY..."
+        Btn.TextColor3 = Settings.Green
     end)
 
     UserInputService.InputBegan:Connect(function(input)
         if Listening and input.UserInputType == Enum.UserInputType.Keyboard then
             Values[name] = input.KeyCode
-            Button.Text = input.KeyCode.Name
+            Btn.Text = input.KeyCode.Name
+            Btn.TextColor3 = Settings.Accent2
             Listening = false
             if callback then callback(input.KeyCode) end
         end
@@ -1106,8 +1202,8 @@ local function Keybind(name, defaultKey, callback)
 end
 
 local function ActionButton(name, color, callback)
-    local Button = Create("TextButton", {
-        Size = UDim2.new(1,-5,0,40),
+    local Btn = Create("TextButton", {
+        Size = UDim2.new(1, -5, 0, 40),
         BackgroundColor3 = color or Settings.Accent,
         BorderSizePixel = 0,
         Text = name,
@@ -1115,206 +1211,241 @@ local function ActionButton(name, color, callback)
         TextSize = 10,
         Font = Enum.Font.GothamBold
     }, Content)
-    Corner(Button, 6)
-    Button.MouseButton1Click:Connect(callback)
-    RegisterControl(Button, name)
-    return Button
+    Corner(Btn, 8)
+    Btn.MouseButton1Click:Connect(callback)
+    RegisterControl(Btn, name)
+    return Btn
 end
 
 --============================================================
--- FULL CATEGORY RENDERERS
+-- PAGE RENDERERS
 --============================================================
 
 local Pages = {
     {"Dashboard", "rbxassetid://6031265976"},
-    {"Combat", "rbxassetid://6034838634"},
+    {"Silent", "rbxassetid://6023426915"},
+    {"Aim Assist", "rbxassetid://6034838634"},
     {"Visuals", "rbxassetid://6031763426"},
     {"Movement", "rbxassetid://6034508955"},
-    {"Weapon", "rbxassetid://6035078863"},
     {"Player", "rbxassetid://6034287525"},
     {"Misc", "rbxassetid://6031280882"},
     {"Settings", "rbxassetid://6031280882"}
 }
 
-local CurrentPage = "Dashboard"
-
 local function RenderDashboard()
     ClearContent()
 
-    local ProfileCard = Create("Frame", { Size = UDim2.new(1,-5,0,85), BackgroundColor3 = Settings.Panel, BorderSizePixel = 0 }, Content)
-    Corner(ProfileCard, 8)
-    Stroke(ProfileCard, Settings.Border, 1)
+    local WelcomeCard = Create("Frame", { Size = UDim2.new(1, -5, 0, 105), BackgroundColor3 = Settings.Panel, BorderSizePixel = 0 }, Content)
+    Corner(WelcomeCard, 8)
+    Stroke(WelcomeCard, Settings.Border, 1)
 
-    local AvatarImg = Create("ImageLabel", {
-        Size = UDim2.fromOffset(65, 65),
-        Position = UDim2.fromOffset(10, 10),
+    local Avatar = Create("ImageLabel", {
+        Size = UDim2.fromOffset(72, 72),
+        Position = UDim2.fromOffset(16, 16),
         BackgroundTransparency = 1,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
-    }, ProfileCard)
-    Corner(AvatarImg, 35)
-    Stroke(AvatarImg, Settings.Accent, 1.5)
+    }, WelcomeCard)
+    Corner(Avatar, 36)
+    Stroke(Avatar, Settings.Accent, 1.5)
 
-    local UserTitle = Label(ProfileCard, LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")", 13, Settings.Text, Enum.Font.GothamBold)
-    UserTitle.Position = UDim2.fromOffset(85, 15)
-    UserTitle.Size = UDim2.new(1, -95, 0, 22)
+    local Title = Label(WelcomeCard, "Welcome back, " .. LocalPlayer.DisplayName .. "!", 14, Settings.Text, Enum.Font.GothamBold)
+    Title.Position = UDim2.fromOffset(102, 20)
+    Title.Size = UDim2.new(1, -115, 0, 22)
 
-    local UserStatus = Label(ProfileCard, "STATUS: PREMIUM MASTER USER • KOSMOS V4 EXTENDED", 9, Settings.Accent2, Enum.Font.GothamBold)
-    UserStatus.Position = UDim2.fromOffset(85, 38)
-    UserStatus.Size = UDim2.new(1, -95, 0, 18)
+    local Sub = Label(WelcomeCard, "KoSMO Hub • Professional Purple Edition is fully operational.", 9, Settings.Accent2, Enum.Font.GothamMedium)
+    Sub.Position = UDim2.fromOffset(102, 45)
+    Sub.Size = UDim2.new(1, -115, 0, 18)
 
-    local UserID = Label(ProfileCard, "USER ID: " .. tostring(LocalPlayer.UserId), 8, Settings.SubText)
-    UserID.Position = UDim2.fromOffset(85, 55)
-    UserID.Size = UDim2.new(1, -95, 0, 15)
+    Section("LICENSE INFORMATION", "Subscription and active key status details")
+    local KeyCard = Create("Frame", { Size = UDim2.new(1, -5, 0, 65), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
+    Corner(KeyCard, 8)
+    Stroke(KeyCard, Settings.Border, 1)
 
-    Section("KOSMOS CONTROL CENTER", "Sessione attiva ed estesa a tutte le funzionalità")
+    local KeyLbl = Label(KeyCard, "Active Key: " .. ActiveKey, 10, Settings.Text, Enum.Font.GothamBold)
+    KeyLbl.Position = UDim2.fromOffset(14, 12)
+    KeyLbl.Size = UDim2.new(1, -28, 0, 18)
 
-    local Grid = Create("Frame", { Size = UDim2.new(1,-5,0,110), BackgroundTransparency = 1 }, Content)
-    Create("UIGridLayout", { CellSize = UDim2.new(0.32,0,0,100), CellPadding = UDim2.new(0.02,0,0,0) }, Grid)
+    local ExpireLbl = Label(KeyCard, "Expiration: " .. KeyExpiration, 10, Settings.Green, Enum.Font.GothamBold)
+    ExpireLbl.Position = UDim2.fromOffset(14, 34)
+    ExpireLbl.Size = UDim2.new(1, -28, 0, 18)
 
-    local Cards = { {"FULL", "EXTENDED ENGINE"}, {"8", "CATEGORIE MODULI"}, {"V4", "UNRESTRICTED"} }
-    for _, data in ipairs(Cards) do
-        local Card = Create("Frame", { BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Grid)
-        Corner(Card, 8)
-        Stroke(Card, Settings.Border, 1)
-        
-        local Num = Label(Card, data[1], 23, Settings.Accent, Enum.Font.GothamBlack)
-        Num.Position = UDim2.fromOffset(14,12)
-        Num.Size = UDim2.new(1,-28,0,32)
+    local StatsRow = Create("Frame", { Size = UDim2.new(1, -5, 0, 80), BackgroundTransparency = 1 }, Content)
+    Create("UIGridLayout", { CellSize = UDim2.new(0.32, 0, 0, 75), CellPadding = UDim2.new(0.02, 0, 0, 0) }, StatsRow)
 
-        local Lbl = Label(Card, data[2], 8, Settings.SubText, Enum.Font.GothamBold)
-        Lbl.Position = UDim2.fromOffset(14,48)
-        Lbl.Size = UDim2.new(1,-28,0,18)
+    local stats = {
+        {"FPS", tostring(math.floor(1 / RunService.RenderStepped:Wait())), Settings.Accent},
+        {"Players", tostring(#Players:GetPlayers()), Settings.Accent2},
+        {"Status", "Active", Settings.Green}
+    }
+    for _, s in ipairs(stats) do
+        local Box = Create("Frame", { BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, StatsRow)
+        Corner(Box, 8)
+        Stroke(Box, Settings.Border, 1)
+        local N = Label(Box, s[2], 18, s[3], Enum.Font.GothamBlack)
+        N.Position = UDim2.fromOffset(14, 12)
+        N.Size = UDim2.new(1, -28, 0, 26)
+        local L = Label(Box, s[1], 9, Settings.SubText, Enum.Font.GothamBold)
+        L.Position = UDim2.fromOffset(14, 42)
+        L.Size = UDim2.new(1, -28, 0, 16)
     end
+
+    Section("COMBAT WHITELIST", "Manage whitelisted players ignored by combat")
+    Toggle("Whitelist Combat Check", Settings.WhitelistCombatCheck, function(v) Settings.WhitelistCombatCheck = v end)
+
+    local WLContainer = Create("Frame", { Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, ZIndex = 2 }, Content)
+    Corner(WLContainer, 8)
+    local WLLabel = Label(WLContainer, "Whitelist Players:", 10, Settings.Text)
+    WLLabel.Position = UDim2.fromOffset(14, 0)
+    WLLabel.Size = UDim2.new(0.4, 0, 1, 0)
+
+    local WLBtn = Create("TextButton", {
+        Size = UDim2.fromOffset(165, 28),
+        Position = UDim2.new(1, -179, 0.5, -14),
+        BackgroundColor3 = Settings.Panel,
+        BorderSizePixel = 0,
+        Text = "Manage Whitelist ▼",
+        TextColor3 = Settings.Accent2,
+        TextSize = 10,
+        Font = Enum.Font.GothamBold,
+        ZIndex = 3
+    }, WLContainer)
+    Corner(WLBtn, 6)
+    Stroke(WLBtn, Settings.Border, 1)
+
+    local function RefreshWL()
+        for _, c in ipairs(WLListGlobal:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                local isWl = Settings.Whitelist[p.Name]
+                local opt = Create("TextButton", {
+                    Size = UDim2.new(1, 0, 0, 28),
+                    BackgroundTransparency = 1,
+                    Text = (isWl and "[✓] " or "[ ] ") .. p.Name,
+                    TextColor3 = isWl and Settings.Green or Settings.Text,
+                    TextSize = 10,
+                    Font = Enum.Font.GothamMedium,
+                    ZIndex = 1001
+                }, WLListGlobal)
+                opt.MouseButton1Click:Connect(function()
+                    Settings.Whitelist[p.Name] = not Settings.Whitelist[p.Name]
+                    RefreshWL()
+                end)
+            end
+        end
+    end
+
+    WLBtn.MouseButton1Click:Connect(function()
+        wlOpenState = not wlOpenState
+        if wlOpenState then 
+            RefreshWL() 
+            local btnAbsPos = WLBtn.AbsolutePosition
+            local btnAbsSize = WLBtn.AbsoluteSize
+            WLListGlobal.Position = UDim2.fromOffset(btnAbsPos.X, btnAbsPos.Y + btnAbsSize.Y + 2)
+            WLListGlobal.Size = UDim2.fromOffset(btnAbsSize.X, 120)
+        end
+        WLListGlobal.Visible = wlOpenState
+    end)
+    RegisterControl(WLContainer, "Whitelist")
 end
 
-local function RenderCombat()
+local function RenderSilent()
     ClearContent()
-    Section("SILENT AIM & COMBAT ENGINE", "Impostazioni principali di mira silenziosa e ingaggio")
+    Section("SILENT AIM ENGINE", "Main silent projectile redirection")
     Toggle("Silent Aim Active", Settings.Enabled, function(v) Settings.Enabled = v end)
-    Toggle("Team Check (Ignora Alleati)", Settings.TeamCheck, function(v) Settings.TeamCheck = v end)
-    Toggle("Wall Check (Verifica Visibilità)", Settings.WallCheck, function(v) Settings.WallCheck = v end)
+    Toggle("Wall Check", Settings.WallCheck, function(v) Settings.WallCheck = v end)
+    Toggle("Custom Part (Closest to Cursor)", Settings.CustomPart, function(v) Settings.CustomPart = v end)
     
-    Section("ACCURACY & TARGETING PATTERN", "Sequenza di tiro e probabilità di impatto")
-    Toggle("Hit Pattern Sequence (Head/Torso/Legs)", Settings.HitPatternEnabled, function(v) Settings.HitPatternEnabled = v end)
+    Section("HUD & OVERLAYS", "Visual indicators and FOV circles")
+    Toggle("Show FOV Circle", Settings.ShowFOV, function(v) Settings.ShowFOV = v end)
+    Toggle("Show Target Dot", Settings.ShowDot, function(v) Settings.ShowDot = v end)
+    Toggle("Rainbow FOV", Settings.RainbowFOV, function(v) Settings.RainbowFOV = v end)
+
+    Section("ACCURACY & PROBABILITY", "Hit probability and FOV parameters")
     Slider("Hit Probability", 1, 100, Settings.HitProbability, "%", function(v) Settings.HitProbability = v end)
     Slider("Target Base FOV", 10, 300, Settings.BaseFOV, " px", function(v) Settings.BaseFOV = v end)
-    Toggle("Dynamic Target FOV Scaling", Settings.DynamicFOV, function(v) Settings.DynamicFOV = v end)
+    Toggle("Dynamic FOV Scaling", Settings.DynamicFOV, function(v) Settings.DynamicFOV = v end)
+
+    Section("SILENT AIM KEYBINDS", "Hotkeys for Silent Aim features")
+    Keybind("Silent Aim Toggle Bind", Settings.SilentKey, function(k) Settings.SilentKey = k end)
+    Keybind("Custom Part Toggle Bind", Settings.CustomPartKey, function(k) Settings.CustomPartKey = k end)
+end
+
+local function RenderAimAssist()
+    ClearContent()
+    Section("AIM ASSIST SETTINGS", "Smooth cursor and camera assistance")
+    Toggle("Aim Assist Active", Settings.AimAssistEnabled, function(v) Settings.AimAssistEnabled = v end)
+    Toggle("Wall Check", Settings.AimAssistWallCheck, function(v) Settings.AimAssistWallCheck = v end)
+    Toggle("Custom Part (Closest to Cursor)", Settings.AimAssistCustomPart, function(v) Settings.AimAssistCustomPart = v end)
+    
+    Section("HUD & OVERLAYS", "Visual indicators and FOV circles")
+    Toggle("Show FOV", Settings.AimAssistShowFOV, function(v) Settings.AimAssistShowFOV = v end)
+    Toggle("Rainbow", Settings.AimAssistRainbowFOV, function(v) Settings.AimAssistRainbowFOV = v end)
+
+    Section("SMOOTHNESS & FOV", "Speed and target range")
+    Slider("Smoothness", 1, 20, math.floor(Settings.AimAssistSmoothness * 100), "%", function(v) Settings.AimAssistSmoothness = v / 100 end)
+    Slider("Aim Assist FOV", 10, 300, Settings.AimAssistFOV, " px", function(v) Settings.AimAssistFOV = v end)
+
+    Section("AIM ASSIST KEYBINDS", "Hotkeys for Aim Assist features")
+    Keybind("Aim Assist Toggle Bind", Settings.AimAssistKey, function(k) Settings.AimAssistKey = k end)
+    Keybind("Custom Part Toggle Bind", Settings.AimAssistCustomPartKey, function(k) Settings.AimAssistCustomPartKey = k end)
+    Keybind("Wall Check Toggle Bind", Settings.AimAssistWallCheckKey, function(k) Settings.AimAssistWallCheckKey = k end)
 end
 
 local function RenderVisuals()
     ClearContent()
-    Section("HUD & OVERLAY INDICATORS", "Elementi visivi su schermo e mirino")
-    Toggle("Show FOV Circle", Settings.ShowFOV, function(v) Settings.ShowFOV = v end)
-    Toggle("Show Target Dot Indicator", Settings.ShowDot, function(v) Settings.ShowDot = v end)
-    Toggle("Rainbow FOV Color", Settings.RainbowFOV, function(v) Settings.RainbowFOV = v end)
-    Toggle("Custom Screen Crosshair", Settings.Crosshair, function(v) Settings.Crosshair = v end)
-    
-    Section("ESP PLAYER OVERLAYS", "Tracciamento completo dei giocatori")
-    Toggle("Enable ESP Master Switch", Settings.ESPEnabled, function(v) Settings.ESPEnabled = v end)
-    Toggle("ESP 2D Bounding Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
-    Toggle("ESP Player Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
-    Toggle("ESP Distance Indicator", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
-    Toggle("ESP Health Bar", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
-    Toggle("ESP Tracers (Snaplines)", Settings.ESPTracers, function(v) Settings.ESPTracers = v end)
-    Toggle("ESP Player Chams (Highlight)", Settings.ESPChams, function(v) Settings.ESPChams = v end)
+    Section("ESP PLAYER TRACKING", "ESP bounding boxes and details")
+    Toggle("Enable ESP", Settings.ESPEnabled, function(v) Settings.ESPEnabled = v end)
+    Toggle("ESP Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
+    Toggle("ESP Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
+    Toggle("ESP Distance", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
+    Toggle("ESP Health", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Toggle("ESP Tracers", Settings.ESPTracers, function(v) Settings.ESPTracers = v end)
+    Toggle("ESP Chams", Settings.ESPChams, function(v) Settings.ESPChams = v end)
 
-    Section("LIGHTING & WORLD MODIFIERS", "Modifiche all'ambiente di gioco")
-    Toggle("Fullbright (Rimuovi Ombre e Buio)", Settings.Fullbright, function(v)
-        Settings.Fullbright = v
-        if not v then
-            Lighting.Ambient = origAmbient
-            Lighting.Brightness = origBrightness
-            Lighting.GlobalShadows = origShadows
-        end
-    end)
+    Section("VISUALS KEYBINDS", "Hotkeys for visual features")
+    Keybind("ESP Master Toggle Bind", Settings.ESPKey, function(k) Settings.ESPKey = k end)
 end
 
 local function RenderMovement()
     ClearContent()
-    Section("SPEED & JUMP MODIFIERS", "Regolazione parametri di movimento")
-    Toggle("Enable WalkSpeed Modifier", Settings.EnableWalkSpeed, function(v)
-        Settings.EnableWalkSpeed = v
-        if not v and LocalPlayer.Character then
-            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then humanoid.WalkSpeed = 16 end
-        end
-    end)
-    Slider("Custom WalkSpeed", 16, 250, Settings.WalkSpeed, " studs/s", function(v) Settings.WalkSpeed = v end)
+    Section("MOVEMENT MODIFIERS", "Speed and physical adjustments")
+    Toggle("Enable WalkSpeed", Settings.EnableWalkSpeed, function(v) Settings.EnableWalkSpeed = v end)
+    Slider("WalkSpeed", 6, 2000, Settings.WalkSpeed, " studs/s", function(v) Settings.WalkSpeed = v end)
+    Toggle("Noclip", Settings.Noclip, function(v) Settings.Noclip = v end)
+    Toggle("CFrame Fly", Settings.FlyEnabled, function(v) Settings.FlyEnabled = v end)
+    Slider("Fly Speed", 10, 200, Settings.FlySpeed, " spd", function(v) Settings.FlySpeed = v end)
 
-    Toggle("Enable Jump Power Modifier", Settings.EnableJumpPower, function(v)
-        Settings.EnableJumpPower = v
-        if not v and LocalPlayer.Character then
-            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then humanoid.JumpPower = 50 end
-        end
-    end)
-    Slider("Custom JumpPower", 50, 350, Settings.JumpPower, " power", function(v) Settings.JumpPower = v end)
-
-    Section("ADVANCED MOVEMENT MECHANICS", "Volo CFrame, collisioni ed abilità speciali")
-    Toggle("Infinite Jump (Salto Infinito)", Settings.InfiniteJump, function(v) Settings.InfiniteJump = v end)
-    Toggle("Noclip (Attraversa Muri)", Settings.Noclip, function(v) Settings.Noclip = v end)
-    Toggle("Auto BHop (Bunny Hop)", Settings.BHop, function(v) Settings.BHop = v end)
-    Toggle("CFrame Fly (Volo Fluido WASD)", Settings.FlyEnabled, function(v) Settings.FlyEnabled = v end)
-    Slider("Fly Speed", 10, 200, Settings.FlySpeed, " speed", function(v) Settings.FlySpeed = v end)
-end
-
--- AGGIORNATO CON TUTTE LE NUOVE FUNZIONI WEAPON
-local function RenderWeapon()
-    ClearContent()
-    Section("UNIVERSAL WEAPON MODIFIERS", "Modificatori delle prestazioni dell'arma")
-    Toggle("No Recoil (Azzera Rinculo / Camera Shake)", Settings.NoRecoil, function(v) Settings.NoRecoil = v end)
-    Toggle("No Spread (Azzera Dispersione)", Settings.NoSpread, function(v) Settings.NoSpread = v end)
-    Toggle("Rapid Fire / Max RPM (Cadenza Istantanea)", Settings.RapidFire, function(v) Settings.RapidFire = v end)
-    Toggle("Always Auto (Modalità Automatica)", Settings.AlwaysAuto, function(v) Settings.AlwaysAuto = v end)
-    Toggle("Infinite Ammo (Munizioni Infinite)", Settings.InfiniteAmmo, function(v) Settings.InfiniteAmmo = v end)
-    Toggle("Instant Reload (Ricarica Istantanea)", Settings.InstantReload, function(v) Settings.InstantReload = v end)
-
-    Section("ADVANCED BALLISTICS & SHOT MODS", "Wallbang, Multi-Shot e balistica avanzata")
-    Toggle("Wallbang (Proiettili Attraversano Muri)", Settings.Wallbang, function(v) Settings.Wallbang = v end)
-    Toggle("Multi-Shot / Shotgun Mod (Sparo Multiplo)", Settings.MultiShot, function(v) Settings.MultiShot = v end)
-    Slider("Multi-Shot Pellets Count", 2, 20, Settings.ShotCount, " colpi", function(v) Settings.ShotCount = v end)
+    Section("MOVEMENT KEYBINDS", "Hotkeys for movement")
+    Keybind("WalkSpeed Toggle Bind", Settings.WalkSpeedKey, function(k) Settings.WalkSpeedKey = k end)
 end
 
 local function RenderPlayer()
     ClearContent()
-    Section("CAMERA & PERSPECTIVE MODIFIERS", "Modificatori del campo visivo e vista del giocatore")
-    Toggle("Abilita Custom FOV Camera", Settings.EnableCustomFOV, function(v)
-        Settings.EnableCustomFOV = v
-        if not v then
-            local cam = getCamera()
-            if cam then cam.FieldOfView = 70 end
-        end
-    end)
-    Slider("Camera Field of View", 30, 120, Settings.CustomFOV, " deg", function(v) Settings.CustomFOV = v end)
+    Section("CAMERA & PERSPECTIVE", "Camera and perspective visual settings")
+    Toggle("Ghost Mode", Settings.GhostMode, function(v) Settings.GhostMode = v end)
+    
+    Section("SPINBOT ENGINE", "Anti-aim spinbot")
+    Toggle("Spinbot", Settings.Spinbot, function(v) Settings.Spinbot = v end)
+    Slider("Spin Velocity", 5, 120, Settings.SpinSpeed, " deg/s", function(v) Settings.SpinSpeed = v end)
 
-    Section("CHARACTER SIZE & PHYSICS", "Altezza, visibilità e modifiche fisiche del personaggio")
-    Toggle("Abilita Custom HipHeight", Settings.EnableHipHeight, function(v)
-        Settings.EnableHipHeight = v
-        if not v and LocalPlayer.Character then
-            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then humanoid.HipHeight = 2 end
-        end
-    end)
-    Slider("HipHeight Personaggio", 0, 50, Settings.CustomHipHeight, " studs", function(v) Settings.CustomHipHeight = v end)
-    Toggle("Ghost Mode (Semitrasparenza)", Settings.GhostMode, function(v) Settings.GhostMode = v end)
-
-    Section("ANTI-AIM & SPINBOT ENGINE", "Rotazione desincronizzata e protezione tracciamento")
-    Toggle("Spinbot Active", Settings.Spinbot, function(v) Settings.Spinbot = v end)
-    Slider("Spinbot Rotazione Velocity", 5, 120, Settings.SpinSpeed, " deg/s", function(v) Settings.SpinSpeed = v end)
-
-    Section("QUICK PLAYER ACTIONS", "Azioni rapide ed esecuzione comandi personaggio")
-    ActionButton("RESPAWN / RE-SET PERSONAGGIO", Settings.Red, function()
-        if LocalPlayer.Character then
-            local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then humanoid.Health = 0 end
+    Section("CHARACTER ACTIONS", "Quick character reset")
+    ActionButton("RESPAWN / RESET", Settings.Red, function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").Health = 0
         end
     end)
 end
 
 local function RenderMisc()
     ClearContent()
-    Section("SERVER & SESSION UTILITIES", "Gestione del server e connessione rapida")
-    ActionButton("SERVER HOP (Trova nuovo server)", Settings.Accent, function()
+    Section("ENVIRONMENT & PERFORMANCE", "Fullbright, Boosts and Textures")
+    Toggle("Fullbright", Settings.Fullbright, function(v) Settings.Fullbright = v end)
+    Toggle("FPS Boost", Settings.FPSBoost, function(v) Settings.FPSBoost = v end)
+    Toggle("No Decals", Settings.NoDecals, function(v) Settings.NoDecals = v end)
+    Toggle("Anti-AFK", Settings.AntiAFK, function(v) Settings.AntiAFK = v end)
+
+    Section("SERVER UTILITIES", "Teleportation and server tools")
+    ActionButton("SERVER HOP", Settings.Accent, function()
         local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data
         for _, s in ipairs(servers) do
             if s.playing ~= s.maxPlayers and s.id ~= game.JobId then
@@ -1323,232 +1454,242 @@ local function RenderMisc()
             end
         end
     end)
-
-    ActionButton("REJOIN SERVER (Riconnetti al server attuale)", Settings.Panel, function()
+    ActionButton("REJOIN SERVER", Settings.Panel, function()
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
-    end)
-
-    ActionButton("COPIA JOB ID SERVER", Settings.Element, function()
-        if setclipboard then
-            setclipboard(tostring(game.JobId))
-        end
-    end)
-
-    Section("PERFORMANCE & AUTOMATION", "Prestazioni, anti-afk ed ottimizzazioni")
-    Toggle("Anti-AFK Automagico", Settings.AntiAFK, function(v) Settings.AntiAFK = v end)
-    Toggle("FPS Boost / Low Graphics", Settings.FPSBoost, function(v)
-        Settings.FPSBoost = v
-        if v then
-            for _, v in ipairs(workspace:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.Material = Enum.Material.SmoothPlastic
-                elseif v:IsA("Decal") or v:IsA("Texture") then
-                    v:Destroy()
-                end
-            end
-        end
     end)
 end
 
 local function RenderSettings()
     ClearContent()
+    Section("CONFIGURATION MANAGER", "Save and load configurations")
 
-    local StatusLbl = Label(Content, "Stato: In attesa di azioni...", 9, Settings.SubText)
-    StatusLbl.Size = UDim2.new(1, -5, 0, 18)
+    local StatusLbl = Label(Content, "Status: Ready", 9, Settings.SubText)
+    StatusLbl.Size = UDim2.new(1, -5, 0, 16)
 
-    Section("1. CRIA O AGGIORNA CONFIGURAZIONE", "Salva le attuali impostazioni in un file salvato")
+    local SaveRow = Create("Frame", { Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
+    Corner(SaveRow, 8)
+    local NameLbl = Label(SaveRow, "Config Name:", 10, Settings.Text)
+    NameLbl.Position = UDim2.fromOffset(14, 0)
+    NameLbl.Size = UDim2.new(0.4, 0, 1, 0)
 
-    local SaveRow = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
-    Corner(SaveRow, 6)
-    
-    local NameLabel = Label(SaveRow, "Nome Configurazione:", 10, Settings.Text)
-    NameLabel.Position = UDim2.fromOffset(12, 0)
-    NameLabel.Size = UDim2.new(0.4, 0, 1, 0)
-
-    local SaveNameBox = Create("TextBox", {
-        Size = UDim2.fromOffset(180, 28),
-        Position = UDim2.new(1, -192, 0.5, -14),
+    local SaveBox = Create("TextBox", {
+        Size = UDim2.fromOffset(165, 28),
+        Position = UDim2.new(1, -179, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
         Text = newConfigInputName,
-        PlaceholderText = "Nome config...",
+        PlaceholderText = "Name...",
         TextColor3 = Settings.Accent2,
         TextSize = 10,
         Font = Enum.Font.GothamBold
     }, SaveRow)
-    Corner(SaveNameBox, 5)
-    Stroke(SaveNameBox, Settings.Border, 1)
+    Corner(SaveBox, 6)
+    Stroke(SaveBox, Settings.Border, 1)
+    SaveBox:GetPropertyChangedSignal("Text"):Connect(function() newConfigInputName = SaveBox.Text end)
 
-    SaveNameBox:GetPropertyChangedSignal("Text"):Connect(function()
-        newConfigInputName = SaveNameBox.Text
-    end)
-
-    ActionButton("SALVA NUOVA CONFIGURAZIONE", Settings.Accent, function()
-        if newConfigInputName == "" then
-            StatusLbl.Text = "Errore: Inserisci un nome valido!"
-            StatusLbl.TextColor3 = Settings.Red
-            return
-        end
-
+    ActionButton("SAVE CONFIGURATION", Settings.Accent, function()
         if SaveConfig(newConfigInputName) then
-            StatusLbl.Text = "Configurazione '" .. newConfigInputName .. "' salvata con successo!"
+            StatusLbl.Text = "Config saved successfully!"
             StatusLbl.TextColor3 = Settings.Green
-            SelectPage("Settings")
         end
     end)
 
-    Section("2. GESTIONE FILE DI CONFIGURAZIONE", "Seleziona, carica, esegui all'avvio o elimina")
-
-    local savedList = GetSavedConfigs()
-    if #savedList > 0 and selectedDropdownConfig == "" then
-        selectedDropdownConfig = savedList[1]
-    end
-
-    local DropdownContainer = Create("Frame", { Size = UDim2.new(1,-5,0,45), BackgroundColor3 = Settings.Element, BorderSizePixel = 0 }, Content)
-    Corner(DropdownContainer, 6)
-
-    local DropTitle = Label(DropdownContainer, "Config Selezionata:", 10, Settings.Text)
-    DropTitle.Position = UDim2.fromOffset(12, 0)
+    local DropdownContainer = Create("Frame", { Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = Settings.Element, BorderSizePixel = 0, ZIndex = 2 }, Content)
+    Corner(DropdownContainer, 8)
+    local DropTitle = Label(DropdownContainer, "Select Config:", 10, Settings.Text)
+    DropTitle.Position = UDim2.fromOffset(14, 0)
     DropTitle.Size = UDim2.new(0.4, 0, 1, 0)
 
     local DropBtn = Create("TextButton", {
-        Size = UDim2.fromOffset(180, 28),
-        Position = UDim2.new(1, -192, 0.5, -14),
+        Size = UDim2.fromOffset(165, 28),
+        Position = UDim2.new(1, -179, 0.5, -14),
         BackgroundColor3 = Settings.Panel,
-        Text = selectedDropdownConfig ~= "" and (selectedDropdownConfig .. "  ▼") or "Nessuna Config Found  ▼",
+        Text = selectedDropdownConfig ~= "" and selectedDropdownConfig or "Select Config ▼",
         TextColor3 = Settings.Accent2,
         TextSize = 10,
-        Font = Enum.Font.GothamBold
+        Font = Enum.Font.GothamBold,
+        ZIndex = 3
     }, DropdownContainer)
-    Corner(DropBtn, 5)
+    Corner(DropBtn, 6)
     Stroke(DropBtn, Settings.Border, 1)
 
-    ActionButton("CARICA CONFIGURAZIONE SELEZIONATA", Settings.Panel, function()
-        if selectedDropdownConfig ~= "" and LoadConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurazione '" .. selectedDropdownConfig .. "' caricata!"
-            StatusLbl.TextColor3 = Settings.Green
-            SelectPage("Settings")
+    local DropList = Create("ScrollingFrame", {
+        Size = UDim2.new(0, 165, 0, 100),
+        Position = UDim2.new(1, -179, 1, 2),
+        BackgroundColor3 = Settings.Panel,
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 50,
+        CanvasSize = UDim2.new(0,0,0,0),
+        ScrollBarThickness = 2
+    }, DropdownContainer)
+    Corner(DropList, 6)
+    Stroke(DropList, Settings.Border, 1)
+    local DropLayout = Create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, DropList)
+    DropLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        DropList.CanvasSize = UDim2.new(0,0,0,DropLayout.AbsoluteContentSize.Y)
+    end)
+
+    local function RefreshDropdown()
+        for _, c in ipairs(DropList:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
         end
-    end)
-
-    ActionButton("IMPOSTA AUTOLOAD ALL'AVVIO", Settings.Element, function()
-        if selectedDropdownConfig ~= "" then
-            SetAutoLoadConfig(selectedDropdownConfig)
-            StatusLbl.Text = "AutoLoad impostato su '" .. selectedDropdownConfig .. "'!"
-            StatusLbl.TextColor3 = Settings.Green
-            SelectPage("Settings")
-        end
-    end)
-
-    ActionButton("ELIMINA CONFIGURAZIONE", Settings.Red, function()
-        if selectedDropdownConfig ~= "" and DeleteConfig(selectedDropdownConfig) then
-            StatusLbl.Text = "Configurazione eliminata con successo!"
-            StatusLbl.TextColor3 = Settings.Green
-            selectedDropdownConfig = ""
-            SelectPage("Settings")
-        end
-    end)
-
-    Section("3. KEYBINDS E AMBIENTE", "Tasti rapidi e controllo dello script")
-    Keybind("Tasto Apertura/Chiusura Menu", Settings.ToggleKey, function(key) Settings.ToggleKey = key end)
-    Keybind("Tasto Unload Script Rapido", Settings.UnloadKey, function(key) Settings.UnloadKey = key end)
-    
-    Slider("Scala Dimensione Interfaccia (UI Scale)", 8, 15, math.floor(Settings.UIScale * 10), "x", function(v)
-        Settings.UIScale = v / 10
-        MainScale.Scale = Settings.UIScale
-    end)
-
-    ActionButton("UNLOAD & RIMUOVI SCRIPT DALLA MEMORIA", Settings.Red, UnloadScript)
-end
-
-SelectPage = function(name)
-    CurrentPage = name
-    for _, button in ipairs(Navigation:GetChildren()) do
-        if button:IsA("TextButton") then
-            local page = button:GetAttribute("Page")
-            local isSel = (page == name)
-            button.BackgroundColor3 = isSel and Settings.Accent or Settings.Sidebar
-            local icon = button:FindFirstChild("IconImage")
-            local text = button:FindFirstChild("Text")
-            if icon then icon.ImageColor3 = isSel and Color3.new(1,1,1) or Settings.SubText end
-            if text then text.TextColor3 = isSel and Color3.new(1,1,1) or Settings.SubText end
+        for _, cfgName in ipairs(GetSavedConfigs()) do
+            local opt = Create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 28),
+                BackgroundTransparency = 1,
+                Text = cfgName,
+                TextColor3 = Settings.Text,
+                TextSize = 10,
+                Font = Enum.Font.GothamMedium,
+                ZIndex = 51
+            }, DropList)
+            opt.MouseButton1Click:Connect(function()
+                selectedDropdownConfig = cfgName
+                DropBtn.Text = cfgName
+                DropList.Visible = false
+                dropdownOpen = false
+            end)
         end
     end
 
+    DropBtn.MouseButton1Click:Connect(function()
+        dropdownOpen = not dropdownOpen
+        if dropdownOpen then RefreshDropdown() end
+        DropList.Visible = dropdownOpen
+    end)
+
+    ActionButton("LOAD CONFIGURATION", Settings.Panel, function()
+        if selectedDropdownConfig ~= "" and LoadConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Config loaded!"
+            StatusLbl.TextColor3 = Settings.Green
+        end
+    end)
+
+    ActionButton("SET AUTOLOAD", Settings.Element, function()
+        if selectedDropdownConfig ~= "" then
+            SetAutoLoadConfig(selectedDropdownConfig)
+            StatusLbl.Text = "Autoload set!"
+            StatusLbl.TextColor3 = Settings.Green
+        end
+    end)
+
+    ActionButton("DELETE CONFIGURATION", Settings.Red, function()
+        if selectedDropdownConfig ~= "" and DeleteConfig(selectedDropdownConfig) then
+            StatusLbl.Text = "Config deleted!"
+            StatusLbl.TextColor3 = Settings.Green
+            selectedDropdownConfig = ""
+            DropBtn.Text = "Select Config ▼"
+        end
+    end)
+
+    Section("SCRIPT CONTROLS", "Hotkeys and memory cleanup")
+    Keybind("Menu Toggle Key", Settings.ToggleKey, function(k) Settings.ToggleKey = k end)
+    Keybind("Unload Script Key", Settings.UnloadKey, function(k) Settings.UnloadKey = k end)
+    ActionButton("UNLOAD SCRIPT", Settings.Red, UnloadScript)
+end
+
+SelectPage = function(name)
+    for _, btn in ipairs(Navigation:GetChildren()) do
+        if btn:IsA("TextButton") then
+            local p = btn:GetAttribute("Page")
+            local sel = (p == name)
+            btn.BackgroundColor3 = sel and Settings.Accent or Settings.Sidebar
+        end
+    end
     PageTitle.Text = name
-    PageSub.Text = "KOSMOS / " .. string.upper(name)
+    PageSub.Text = "KoSMO / " .. name
 
     if name == "Dashboard" then RenderDashboard()
-    elseif name == "Combat" then RenderCombat()
+    elseif name == "Silent" then RenderSilent()
+    elseif name == "Aim Assist" then RenderAimAssist()
     elseif name == "Visuals" then RenderVisuals()
     elseif name == "Movement" then RenderMovement()
-    elseif name == "Weapon" then RenderWeapon()
     elseif name == "Player" then RenderPlayer()
     elseif name == "Misc" then RenderMisc()
     elseif name == "Settings" then RenderSettings()
     end
 end
 
--- Navigation Buttons Creation
-for index, data in ipairs(Pages) do
-    local name, iconAsset = data[1], data[2]
-    local Button = Create("TextButton", {
-        Size = UDim2.new(1,0,0,39),
+-- Create Navigation Buttons
+for i, data in ipairs(Pages) do
+    local name, iconId = data[1], data[2]
+    local Btn = Create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 38),
         BackgroundColor3 = Settings.Sidebar,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
-        LayoutOrder = index
+        LayoutOrder = i
     }, Navigation)
-
-    Button:SetAttribute("Page", name)
-    Corner(Button, 6)
+    Btn:SetAttribute("Page", name)
+    Corner(Btn, 8)
 
     local Icon = Create("ImageLabel", {
-        Name = "IconImage",
-        Size = UDim2.fromOffset(18, 18),
-        Position = UDim2.fromOffset(14, 10),
+        Size = UDim2.fromOffset(16, 16),
+        Position = UDim2.fromOffset(14, 11),
         BackgroundTransparency = 1,
-        Image = iconAsset,
+        Image = iconId,
         ImageColor3 = Settings.SubText
-    }, Button)
+    }, Btn)
 
-    local TextLabel = Label(Button, name, 10, Settings.SubText, Enum.Font.GothamMedium)
-    TextLabel.Name = "Text"
-    TextLabel.Position = UDim2.fromOffset(45,0)
-    TextLabel.Size = UDim2.new(1,-55,1,0)
+    local Txt = Label(Btn, name, 10, Settings.SubText, Enum.Font.GothamMedium)
+    Txt.Position = UDim2.fromOffset(38, 0)
+    Txt.Size = UDim2.new(1, -44, 1, 0)
 
-    Button.MouseButton1Click:Connect(function() SelectPage(name) end)
+    Btn.MouseButton1Click:Connect(function() SelectPage(name) end)
 end
 
--- Search Engine Filtering
+-- Search filter
 Search:GetPropertyChangedSignal("Text"):Connect(function()
-    local query = string.lower(Search.Text)
-    for _, control in ipairs(CurrentControls) do
-        if query == "" then
-            control.Object.Visible = true
-        else
-            control.Object.Visible = string.find(control.Name, query, 1, true) ~= nil
+    local q = string.lower(Search.Text)
+    for _, ctrl in ipairs(CurrentControls) do
+        ctrl.Object.Visible = (q == "" or string.find(ctrl.Name, q, 1, true) ~= nil)
+    end
+end)
+
+-- Keybind listeners with real-time toggle synchronization
+inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if Settings.ToggleKey and input.KeyCode == Settings.ToggleKey then
+        Main.Visible = not Main.Visible
+        if not Main.Visible then
+            WLListGlobal.Visible = false
+            wlOpenState = false
+        end
+    elseif Settings.UnloadKey and input.KeyCode == Settings.UnloadKey then
+        UnloadScript()
+    elseif Settings.SilentKey and input.KeyCode == Settings.SilentKey then
+        Settings.Enabled = not Settings.Enabled
+        if ToggleElements["Silent Aim Active"] then
+            ToggleElements["Silent Aim Active"].SetState(Settings.Enabled)
+        end
+    elseif Settings.CustomPartKey and input.KeyCode == Settings.CustomPartKey then
+        Settings.CustomPart = not Settings.CustomPart
+        if ToggleElements["Custom Part (Closest to Cursor)"] then
+            ToggleElements["Custom Part (Closest to Cursor)"].SetState(Settings.CustomPart)
+        end
+    elseif Settings.AimAssistKey and input.KeyCode == Settings.AimAssistKey then
+        Settings.AimAssistEnabled = not Settings.AimAssistEnabled
+        if ToggleElements["Aim Assist Active"] then
+            ToggleElements["Aim Assist Active"].SetState(Settings.AimAssistEnabled)
+        end
+    elseif Settings.ESPKey and input.KeyCode == Settings.ESPKey then
+        Settings.ESPEnabled = not Settings.ESPEnabled
+        if ToggleElements["Enable ESP"] then
+            ToggleElements["Enable ESP"].SetState(Settings.ESPEnabled)
+        end
+    elseif Settings.WalkSpeedKey and input.KeyCode == Settings.WalkSpeedKey then
+        Settings.EnableWalkSpeed = not Settings.EnableWalkSpeed
+        if ToggleElements["Enable WalkSpeed"] then
+            ToggleElements["Enable WalkSpeed"].SetState(Settings.EnableWalkSpeed)
         end
     end
 end)
 
--- Keybind Listeners
-inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Settings.ToggleKey then
-        Main.Visible = not Main.Visible
-    elseif input.KeyCode == Settings.UnloadKey then
-        UnloadScript()
-    end
-end)
-
---============================================================
--- STARTUP INITIALIZATION
---============================================================
-
+-- Startup
 ShowLoadingScreen(function()
-    local autoConfig = GetAutoLoadConfig()
-    if autoConfig then LoadConfig(autoConfig) end
+    local auto = GetAutoLoadConfig()
+    if auto then LoadConfig(auto) end
     Main.Visible = true
     SelectPage("Dashboard")
 end)
