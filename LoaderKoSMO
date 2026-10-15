@@ -23,6 +23,9 @@ local SupportedGames = {
     
     -- Hood Rivals
     [77463332823746]  = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
+    
+    -- Knife Duels
+    [112731528776884]  = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua",
 }
 
 --============================================================
