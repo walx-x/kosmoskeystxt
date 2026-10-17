@@ -7,5 +7,14 @@
         "created_at": "2026-10-09T16:24:32+00:00",
         "expires_at": null,
         "expires_ts": null
+    },
+    "KoSMO-BXOL-QA5P": {
+        "hwid": null,
+        "used": false,
+        "rank": "VIP",
+        "duration": "lt",
+        "created_at": "2026-10-17T21:10:21+00:00",
+        "expires_at": null,
+        "expires_ts": null
     }
 }
