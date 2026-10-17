@@ -1,6 +1,7 @@
 --============================================================
 -- KOSMOS HUB — STANDALONE LOADER & KEY SYSTEM
 -- HWID Locking, Local Auto-Login & Game Detection Engine
+-- Multi-Device Detection Engine (PC vs Mobile/Touch)
 --============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -8,6 +9,8 @@ local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local HWID = RbxAnalyticsService:GetClientId()
@@ -15,17 +18,50 @@ local KEY_FILE = "KosmosKey.txt"
 local JSON_KEYS_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json"
 
 --============================================================
--- SUPPORTED GAMES CONFIGURATION (PlaceId -> Raw Github URL)
+-- DEVICE DETECTION ENGINE
 --============================================================
+
+local function IsMobileDevice()
+    local hasTouch = UserInputService.TouchEnabled
+    local hasMouse = UserInputService.MouseEnabled
+    local hasKeyboard = UserInputService.KeyboardEnabled
+
+    -- Controllo basato sui sensori di input e sulla piattaforma
+    if hasTouch and not hasMouse then
+        return true
+    elseif GuiService:IsTenFootInterface() then
+        return false -- Console / TV
+    elseif hasTouch and (not hasKeyboard or UserInputService.GyroscopeEnabled or UserInputService.AccelerometerEnabled) then
+        return true
+    end
+
+    return false
+end
+
+local IsMobile = IsMobileDevice()
+
+--============================================================
+-- SUPPORTED GAMES CONFIGURATION (PlaceId -> PC & Mobile URLs)
+--============================================================
+
 local SupportedGames = {
     -- South London Remastered
-    [114478751418135] = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
+    [114478751418135] = {
+        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
+        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
+    },
     
     -- Hood Rivals
-    [77463332823746]  = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
+    [77463332823746] = {
+        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
+        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
+    },
     
     -- Knife Duels
-    [112731528776884]  = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua",
+    [112731528776884] = {
+        PC = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua",
+        Mobile = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua"
+    },
 }
 
 --============================================================
@@ -54,7 +90,22 @@ end
 
 local function GetScriptForCurrentGame()
     local placeId = game.PlaceId
-    return SupportedGames[placeId]
+    local gameData = SupportedGames[placeId]
+    
+    if gameData then
+        if typeof(gameData) == "table" then
+            if IsMobile and gameData.Mobile then
+                return gameData.Mobile
+            elseif not IsMobile and gameData.PC then
+                return gameData.PC
+            end
+            return gameData.PC or gameData.Mobile
+        elseif typeof(gameData) == "string" then
+            return gameData
+        end
+    end
+    
+    return nil
 end
 
 local function LaunchGameScript(scriptUrl)
@@ -159,7 +210,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Position = UDim2.fromOffset(0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "KOSMOS HUB — AUTHENTICATION"
+Title.Text = "KOSMOS HUB — AUTHENTICATION (" .. (IsMobile and "MOBILE" or "PC") .. ")"
 Title.TextColor3 = Color3.fromRGB(245, 242, 250)
 Title.TextSize = 12
 Title.Font = Enum.Font.GothamBold
@@ -190,7 +241,7 @@ local StatusLbl = Instance.new("TextLabel")
 StatusLbl.Size = UDim2.new(1, -40, 0, 20)
 StatusLbl.Position = UDim2.fromOffset(20, 100)
 StatusLbl.BackgroundTransparency = 1
-StatusLbl.Text = "Waiting for key..."
+StatusLbl.Text = "Waiting for key... [Mode: " .. (IsMobile and "Mobile" or "PC") .. "]"
 StatusLbl.TextColor3 = Color3.fromRGB(150, 143, 163)
 StatusLbl.TextSize = 10
 StatusLbl.Font = Enum.Font.GothamMedium
@@ -236,7 +287,7 @@ VerifyBtn.MouseButton1Click:Connect(function()
             local scriptUrl = GetScriptForCurrentGame()
             
             if scriptUrl then
-                StatusLbl.Text = "Supported game! Launching..."
+                StatusLbl.Text = "Launching (" .. (IsMobile and "Mobile" or "PC") .. " Version)..."
                 task.wait(0.3)
                 ScreenGui:Destroy()
                 LaunchGameScript(scriptUrl)
