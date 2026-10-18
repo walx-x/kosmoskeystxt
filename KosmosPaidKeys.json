@@ -16,14 +16,5 @@
         "created_at": "2026-10-17T21:10:21+00:00",
         "expires_at": null,
         "expires_ts": null
-    },
-    "KoSMO-QANA-8PEC": {
-        "hwid": null,
-        "used": false,
-        "rank": "standard",
-        "duration": "1d",
-        "created_at": "2026-10-17T22:48:22+00:00",
-        "expires_at": "2026-10-18T22:48:22+00:00",
-        "expires_ts": 1792363702
     }
 }
