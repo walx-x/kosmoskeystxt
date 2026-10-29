@@ -16,5 +16,14 @@
         "created_at": "2026-10-17T21:10:21+00:00",
         "expires_at": null,
         "expires_ts": null
+    },
+    "KoSMO-CO6A-9OEV": {
+        "hwid": null,
+        "used": false,
+        "rank": "vip",
+        "duration": "lt",
+        "created_at": "2026-10-29T21:07:12+00:00",
+        "expires_at": null,
+        "expires_ts": null
     }
 }
