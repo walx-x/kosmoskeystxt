@@ -43,5 +43,14 @@
         "created_at": "2026-11-01T11:35:27+00:00",
         "expires_at": "2026-11-02T11:35:27+00:00",
         "expires_ts": 1793619327
+    },
+    "KoSMO-RLAS-EIXN": {
+        "hwid": null,
+        "used": false,
+        "rank": "Standard",
+        "duration": "lt",
+        "created_at": "2026-11-01T23:43:38+00:00",
+        "expires_at": null,
+        "expires_ts": null
     }
 }
