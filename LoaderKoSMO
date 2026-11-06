@@ -59,8 +59,8 @@ local SupportedGames = {
     
     -- Knife Duels
     [112731528776884] = {
-        PC = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua",
-        Mobile = "https://api.luarmor.net/files/v4/loaders/5e489d1f1d9e52b6c23a4eda3ddd82f8.lua"
+        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
+        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
     },
 }
 
