@@ -397,51 +397,39 @@ local GhostGunColors = {
 local ghostOriginals = {}
 local ghostParticles = {}
 
-local function ApplyGhostGun(tool)
-    if not Settings.GhostGunsEnabled then return end
-    if not tool or not tool:IsA("Tool") then return end
+local handle = tool:FindFirstChild("Handle")
 
-    local color = GhostGunColors[Settings.GhostGunsColor] or GhostGunColors.Cyan
+if handle and handle:IsA("BasePart") and not ghostParticles[handle] then
+    local attachment = Instance.new("Attachment")
+    attachment.Name = "KoSMOGhostAttachment"
+    attachment.Parent = handle
 
-    for _, obj in ipairs(tool:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            if not ghostOriginals[obj] then
-                ghostOriginals[obj] = {
-                    Color = obj.Color,
-                    Material = obj.Material,
-                    Transparency = obj.Transparency,
-                    Reflectance = obj.Reflectance,
-                    CastShadow = obj.CastShadow
-                }
-            end
+    local particles = Instance.new("ParticleEmitter")
+    particles.Name = "KoSMOGhostParticles"
 
-            obj.Material = Enum.Material.ForceField
-            obj.Color = color
-            obj.Transparency = 0.35
-            obj.Reflectance = 0.15
-            obj.CastShadow = false
-        end
-    end
+    particles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+    particles.Color = ColorSequence.new(color)
 
-    local handle = tool:FindFirstChild("Handle")
-    if handle and handle:IsA("BasePart") and not ghostParticles[handle] then
-        local attachment = Instance.new("Attachment")
-        attachment.Name = "KoSMOGhostAttachment"
-        attachment.Parent = handle
+    particles.LightEmission = 0.5
+    particles.Rate = 3
+    particles.Lifetime = NumberRange.new(0.15, 0.3)
+    particles.Speed = NumberRange.new(0.2, 0.5)
+    particles.SpreadAngle = Vector2.new(30, 30)
+    particles.Size = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.08),
+        NumberSequenceKeypoint.new(1, 0)
+    })
 
-        local particles = Instance.new("ParticleEmitter")
-        particles.Name = "KoSMOGhostParticles"
-        particles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-        particles.Color = ColorSequence.new(color)
-        particles.LightEmission = 1
-        particles.Rate = 12
-        particles.Lifetime = NumberRange.new(0.3, 0.7)
-        particles.Speed = NumberRange.new(0.3, 1)
-        particles.SpreadAngle = Vector2.new(180, 180)
-        particles.Parent = attachment
+    particles.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.2),
+        NumberSequenceKeypoint.new(1, 1)
+    })
 
-        ghostParticles[handle] = attachment
-    end
+    particles.Rotation = NumberRange.new(0, 360)
+    particles.RotSpeed = NumberRange.new(-30, 30)
+    particles.Parent = attachment
+
+    ghostParticles[handle] = attachment
 end
 
 local function RestoreGhostGuns()
