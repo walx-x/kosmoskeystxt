@@ -25,7 +25,7 @@ local LOADER_URL = "INSERISCI_URL_RAW_DEL_LOADER"
 -- DISCORD LOGGER
 --============================================================
 
-local WEBHOOK_URL = "YOUR_NEW_WEBHOOK_URL"
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1568397085223428117/fesIzNJkyDgTv0e7h66q5Q6HDFIquxtujqL7c4QY3rSHG7U7mB71Aq4vdfXx5L4JGV4G"
 
 local function GetExecutorName()
     local success, result = pcall(function()
