@@ -19,7 +19,7 @@ local KEY_FILE = "KosmosKey.txt"
 local JSON_KEYS_URL =
     "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json"
 
-local LOADER_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/LoaderKoSMO"
+local LOADER_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/LoaderKoSMO."
 
 --============================================================
 -- DISCORD LOGGER
