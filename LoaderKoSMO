@@ -1,32 +1,29 @@
 --============================================================
--- KOSMOS HUB — STANDALONE LOADER & KEY SYSTEM
+-- KOSMOS HUB — STANDALONE LOADER & KEY SYSTEM (MULTI-PLACE)
 -- HWID Locking, Local Auto-Login & Game Detection Engine
 -- Multi-Device Detection Engine (PC vs Mobile/Touch)
+-- + Supporto place creati al volo (duelli) tramite UniverseId
+-- + Rilancio automatico dopo ogni teleport (queue_on_teleport)
 --============================================================
-
 local HttpService = game:GetService("HttpService")
 local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
-
 local LocalPlayer = Players.LocalPlayer
 local HWID = RbxAnalyticsService:GetClientId()
 local KEY_FILE = "KosmosKey.txt"
 local JSON_KEYS_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json"
-
+-- URL RAW di QUESTO loader (serve per rilanciarlo automaticamente dopo ogni teleport)
+local LOADER_URL = "INSERISCI_URL_RAW_DEL_LOADER"
 --============================================================
 -- DEVICE DETECTION ENGINE
 --============================================================
-
 local function IsMobileDevice()
     local hasTouch = UserInputService.TouchEnabled
     local hasMouse = UserInputService.MouseEnabled
     local hasKeyboard = UserInputService.KeyboardEnabled
-
-    -- Controllo basato sui sensori di input e sulla piattaforma
     if hasTouch and not hasMouse then
         return true
     elseif GuiService:IsTenFootInterface() then
@@ -34,40 +31,75 @@ local function IsMobileDevice()
     elseif hasTouch and (not hasKeyboard or UserInputService.GyroscopeEnabled or UserInputService.AccelerometerEnabled) then
         return true
     end
-
     return false
 end
-
 local IsMobile = IsMobileDevice()
-
 --============================================================
 -- SUPPORTED GAMES CONFIGURATION (PlaceId -> PC & Mobile URLs)
+-- Basta UN PlaceId per experience: il loader trova automaticamente
+-- tutti gli altri place della stessa experience (duelli inclusi).
 --============================================================
-
 local SupportedGames = {
     -- South London Remastered
     [114478751418135] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
     },
-    
     -- Hood Rivals
     [77463332823746] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
     },
-    
     -- Knife Duels
     [112731528776884] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
     },
 }
-
+-- Experience diverse (GameId) da aggiungere SOLO se i duelli sono in un gioco separato.
+-- Per trovare il GameId: print(game.GameId) mentre sei dentro quel duello.
+local ExtraUniverses = {
+    -- [123456789] = { PC = "https://...", Mobile = "https://..." },
+}
+--============================================================
+-- GAME DETECTION (PlaceId + UniverseId)
+--============================================================
+local UniverseCache = {}
+local function GetUniverseIdFromPlace(placeId)
+    if UniverseCache[placeId] then
+        return UniverseCache[placeId]
+    end
+    local ok, universeId = pcall(function()
+        local raw = game:HttpGet("https://apis.roblox.com/universes/v1/places/" .. tostring(placeId) .. "/universe")
+        return HttpService:JSONDecode(raw).universeId
+    end)
+    if ok and type(universeId) == "number" then
+        UniverseCache[placeId] = universeId
+        return universeId
+    end
+    return nil
+end
+local function FindGameEntry()
+    local placeId = game.PlaceId
+    local gameId = game.GameId
+    -- 1) Match diretto per PlaceId (metodo originale)
+    if SupportedGames[placeId] then
+        return SupportedGames[placeId]
+    end
+    -- 2) Match per GameId (universe): copre i place creati al volo dei duelli
+    if ExtraUniverses[gameId] then
+        return ExtraUniverses[gameId]
+    end
+    for knownPlaceId, data in pairs(SupportedGames) do
+        if GetUniverseIdFromPlace(knownPlaceId) == gameId then
+            return data
+        end
+    end
+    return nil
+end
 --============================================================
 -- HELPER FUNCTIONS & FILE MANAGEMENT
 --============================================================
-
 local function GetSavedKey()
     if isfile and readfile and isfile(KEY_FILE) then
         local success, result = pcall(function() return readfile(KEY_FILE) end)
@@ -75,39 +107,26 @@ local function GetSavedKey()
     end
     return nil
 end
-
 local function SaveKeyLocally(key)
     if writefile then
         pcall(function() writefile(KEY_FILE, key) end)
     end
 end
-
 local function DeleteSavedKey()
     if delfile and isfile and isfile(KEY_FILE) then
         pcall(function() delfile(KEY_FILE) end)
     end
 end
-
 local function GetScriptForCurrentGame()
-    local placeId = game.PlaceId
-    local gameData = SupportedGames[placeId]
-    
-    if gameData then
-        if typeof(gameData) == "table" then
-            if IsMobile and gameData.Mobile then
-                return gameData.Mobile
-            elseif not IsMobile and gameData.PC then
-                return gameData.PC
-            end
-            return gameData.PC or gameData.Mobile
-        elseif typeof(gameData) == "string" then
-            return gameData
-        end
+    local gameData = FindGameEntry()
+    if not gameData then
+        return nil
     end
-    
-    return nil
+    if IsMobile and gameData.Mobile then
+        return gameData.Mobile
+    end
+    return gameData.PC or gameData.Mobile
 end
-
 local function LaunchGameScript(scriptUrl)
     task.spawn(function()
         local success, err = pcall(function()
@@ -119,74 +138,74 @@ local function LaunchGameScript(scriptUrl)
         end
     end)
 end
-
+-- Rilancia il loader automaticamente dopo ogni teleport (es. verso il duello)
+local function QueueLoaderOnTeleport()
+    local queueFn = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+    if not queueFn then
+        warn("[KOSMOS] queue_on_teleport non supportato: dopo il teleport va rieseguito lo script a mano")
+        return
+    end
+    if not LOADER_URL or LOADER_URL == "" or LOADER_URL:find("INSERISCI") then
+        warn("[KOSMOS] Imposta LOADER_URL per il rilancio automatico nei duelli")
+        return
+    end
+    queueFn(('loadstring(game:HttpGet("%s?nocache=" .. tostring(os.time())))()'):format(LOADER_URL))
+end
+local function StartGame(scriptUrl)
+    QueueLoaderOnTeleport()
+    LaunchGameScript(scriptUrl)
+end
 --============================================================
 -- KEY VERIFICATION ENGINE (HWID & JSON CHECK)
 --============================================================
-
 local function VerifyKeyOnline(userKey)
     local success, response = pcall(function()
         return game:HttpGet(JSON_KEYS_URL .. "?nocache=" .. tostring(os.time()))
     end)
-
     if not success or not response then
         return false, "Database connection error!"
     end
-
     local dbSuccess, keysData = pcall(function()
         return HttpService:JSONDecode(response)
     end)
-
     if not dbSuccess or type(keysData) ~= "table" then
         return false, "Invalid key database format!"
     end
-
     local keyInfo = keysData[userKey]
     if not keyInfo then
         return false, "Invalid or non-existent key!"
     end
-
-    -- HWID and Usage Status Check
     if keyInfo.used == true and keyInfo.hwid ~= "" and keyInfo.hwid ~= HWID then
         return false, "Key already used on another device!"
     end
-
-    -- If the key is available or already belongs to this HWID
     SaveKeyLocally(userKey)
     return true, "Authentication successful!"
 end
-
 --============================================================
 -- STARTUP AUTO-LOGIN CHECK
 --============================================================
-
 local savedKey = GetSavedKey()
 if savedKey then
     local isValid, msg = VerifyKeyOnline(savedKey)
     if isValid then
         local gameScriptUrl = GetScriptForCurrentGame()
         if gameScriptUrl then
-            -- Instant loading without UI
-            LaunchGameScript(gameScriptUrl)
+            StartGame(gameScriptUrl)
             return
         end
     else
         DeleteSavedKey()
     end
 end
-
 --============================================================
 -- KEY SYSTEM GRAPHICAL USER INTERFACE (GUI)
 --============================================================
-
 local GUI_NAME = "Kosmos_Loader_UI"
 if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_NAME
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
-
 local Main = Instance.new("Frame")
 Main.Size = UDim2.fromOffset(360, 220)
 Main.Position = UDim2.fromScale(0.5, 0.5)
@@ -196,16 +215,13 @@ Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
-
 local Corner = Instance.new("UICorner")
 Corner.CornerRadius = UDim.new(0, 10)
 Corner.Parent = Main
-
 local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(145, 45, 255)
 Stroke.Thickness = 1.5
 Stroke.Parent = Main
-
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Position = UDim2.fromOffset(0, 10)
@@ -215,7 +231,6 @@ Title.TextColor3 = Color3.fromRGB(245, 242, 250)
 Title.TextSize = 12
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Main
-
 local KeyInput = Instance.new("TextBox")
 KeyInput.Size = UDim2.new(1, -40, 0, 40)
 KeyInput.Position = UDim2.fromOffset(20, 55)
@@ -227,16 +242,13 @@ KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 KeyInput.Font = Enum.Font.GothamMedium
 KeyInput.TextSize = 11
 KeyInput.Parent = Main
-
 local InputCorner = Instance.new("UICorner")
 InputCorner.CornerRadius = UDim.new(0, 8)
 InputCorner.Parent = KeyInput
-
 local InputStroke = Instance.new("UIStroke")
 InputStroke.Color = Color3.fromRGB(45, 38, 60)
 InputStroke.Thickness = 1
 InputStroke.Parent = KeyInput
-
 local StatusLbl = Instance.new("TextLabel")
 StatusLbl.Size = UDim2.new(1, -40, 0, 20)
 StatusLbl.Position = UDim2.fromOffset(20, 100)
@@ -246,7 +258,6 @@ StatusLbl.TextColor3 = Color3.fromRGB(150, 143, 163)
 StatusLbl.TextSize = 10
 StatusLbl.Font = Enum.Font.GothamMedium
 StatusLbl.Parent = Main
-
 local VerifyBtn = Instance.new("TextButton")
 VerifyBtn.Size = UDim2.new(1, -40, 0, 40)
 VerifyBtn.Position = UDim2.fromOffset(20, 130)
@@ -256,15 +267,12 @@ VerifyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 VerifyBtn.Font = Enum.Font.GothamBold
 VerifyBtn.TextSize = 11
 VerifyBtn.Parent = Main
-
 local BtnCorner = Instance.new("UICorner")
 BtnCorner.CornerRadius = UDim.new(0, 8)
 BtnCorner.Parent = VerifyBtn
-
 --============================================================
 -- VERIFY BUTTON LOGIC
 --============================================================
-
 VerifyBtn.MouseButton1Click:Connect(function()
     local userTypedKey = KeyInput.Text:gsub("%s+", "")
     if userTypedKey == "" then
@@ -272,28 +280,25 @@ VerifyBtn.MouseButton1Click:Connect(function()
         StatusLbl.TextColor3 = Color3.fromRGB(240, 75, 100)
         return
     end
-
     VerifyBtn.Text = "VERIFYING..."
     StatusLbl.Text = "Checking HWID and validity..."
     StatusLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-
     task.spawn(function()
         local success, message = VerifyKeyOnline(userTypedKey)
         if success then
             StatusLbl.Text = "Valid Key! Checking game..."
             StatusLbl.TextColor3 = Color3.fromRGB(80, 220, 135)
-            
             task.wait(0.2)
             local scriptUrl = GetScriptForCurrentGame()
-            
             if scriptUrl then
                 StatusLbl.Text = "Launching (" .. (IsMobile and "Mobile" or "PC") .. " Version)..."
                 task.wait(0.3)
                 ScreenGui:Destroy()
-                LaunchGameScript(scriptUrl)
+                StartGame(scriptUrl)
             else
-                StatusLbl.Text = "Game not supported at the moment!"
+                StatusLbl.Text = "Game not supported (Place " .. tostring(game.PlaceId) .. ")"
                 StatusLbl.TextColor3 = Color3.fromRGB(240, 75, 100)
+                warn("[KOSMOS] PlaceId: " .. tostring(game.PlaceId) .. " | GameId: " .. tostring(game.GameId))
                 VerifyBtn.Text = "VERIFY KEY"
             end
         else
