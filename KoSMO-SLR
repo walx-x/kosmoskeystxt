@@ -52,34 +52,18 @@ local Settings = {
     AimAssistCustomPartKey = nil,
     AimAssistWallCheckKey = nil,
 
-    -- MERDOSA ESP V2
+    -- Visuals & ESP Engine
     ESPEnabled = false,
-    ESPBoxes = true,
-    ESPNames = true,
-    ESPHealth = true,
-    ESPDistance = true,
-    ESPSkeleton = true,
-    ESPScanner = true,
-    ESPVisibleCheck = true,
-    ESPKey = Enum.KeyCode.Insert,
-    ESPSkeletonThickness = 2,
-    ESPScannerRadius = 3,
-    ESPScannerSpeed = 2.5,
-    ESPScannerHeight = 3,
-    ESPScannerSegments = 32,
-    ESPBoxColor = Color3.fromRGB(145, 45, 255),
-    ESPSkeletonColor = Color3.fromRGB(255, 45, 180),
-    ESPScannerColor = Color3.fromRGB(145, 45, 255),
-    ESPVisibleColor = Color3.fromRGB(80, 220, 135),
-    ESPHiddenColor = Color3.fromRGB(240, 75, 100),
-    
-    -- CUSTOM CURSOR
-    CursorEnabled = false,
-    CursorAssetId = "5560407596",
-    
-    -- GHOST GUNS
-    GhostGunsEnabled = false,
-    GhostGunsColor = "Cyan",
+    ESPBoxes = false,
+    ESPNames = false,
+    ESPDistance = false,
+    ESPHealth = false,
+    ESPChams = false,
+    ESPTracers = false,
+    ESPKey = nil,
+    ChamColor = Color3.fromRGB(145, 45, 255),
+    ESPColor = Color3.fromRGB(255, 255, 255),
+    TracerColor = Color3.fromRGB(145, 45, 255),
 
     -- Movement Engine
     EnableWalkSpeed = false,
@@ -348,140 +332,6 @@ local function getMousePosition()
     local pos = UserInputService:GetMouseLocation()
     return Vector2.new(pos.X, pos.Y)
 end
-
---============================================================
--- CUSTOM CURSOR
---============================================================
-
-local originalMouseIcon = UserInputService.MouseIcon
-local cursorConnection
-
-local function GetCursorAsset()
-    local id = tostring(Settings.CursorAssetId or ""):gsub("%s+", "")
-    if id == "" then return nil end
-
-    id = id:gsub("rbxassetid://", "")
-    if not id:match("^%d+$") then return nil end
-
-    return "rbxassetid://" .. id
-end
-
-cursorConnection = RunService.RenderStepped:Connect(function()
-    if not Settings.CursorEnabled then
-        return
-    end
-
-    local asset = GetCursorAsset()
-    if asset then
-        pcall(function()
-            UserInputService.MouseIcon = asset
-            LocalPlayer:GetMouse().Icon = asset
-        end)
-    end
-end)
-
---============================================================
--- GHOST GUNS
---============================================================
-
-local GhostGunColors = {
-    Cyan = Color3.fromRGB(0, 255, 255),
-    Purple = Color3.fromRGB(170, 0, 255),
-    Red = Color3.fromRGB(255, 35, 35),
-    Green = Color3.fromRGB(0, 255, 100),
-    White = Color3.fromRGB(255, 255, 255),
-    Pink = Color3.fromRGB(255, 45, 180),
-    Orange = Color3.fromRGB(255, 140, 0)
-}
-
-local ghostOriginals = {}
-local ghostParticles = {}
-
-local handle = tool:FindFirstChild("Handle")
-
-if handle and handle:IsA("BasePart") and not ghostParticles[handle] then
-    local attachment = Instance.new("Attachment")
-    attachment.Name = "KoSMOGhostAttachment"
-    attachment.Parent = handle
-
-    local particles = Instance.new("ParticleEmitter")
-    particles.Name = "KoSMOGhostParticles"
-
-    particles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-    particles.Color = ColorSequence.new(color)
-
-    particles.LightEmission = 0.5
-    particles.Rate = 3
-    particles.Lifetime = NumberRange.new(0.15, 0.3)
-    particles.Speed = NumberRange.new(0.2, 0.5)
-    particles.SpreadAngle = Vector2.new(30, 30)
-    particles.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.08),
-        NumberSequenceKeypoint.new(1, 0)
-    })
-
-    particles.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.2),
-        NumberSequenceKeypoint.new(1, 1)
-    })
-
-    particles.Rotation = NumberRange.new(0, 360)
-    particles.RotSpeed = NumberRange.new(-30, 30)
-    particles.Parent = attachment
-
-    ghostParticles[handle] = attachment
-end
-
-local function RestoreGhostGuns()
-    for part, properties in pairs(ghostOriginals) do
-        if part and part.Parent then
-            pcall(function()
-                part.Color = properties.Color
-                part.Material = properties.Material
-                part.Transparency = properties.Transparency
-                part.Reflectance = properties.Reflectance
-                part.CastShadow = properties.CastShadow
-            end)
-        end
-    end
-
-    for _, attachment in pairs(ghostParticles) do
-        if attachment and attachment.Parent then
-            attachment:Destroy()
-        end
-    end
-
-    table.clear(ghostOriginals)
-    table.clear(ghostParticles)
-end
-
-local function UpdateGhostGuns()
-    if not Settings.GhostGunsEnabled then
-        RestoreGhostGuns()
-        return
-    end
-
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    local character = LocalPlayer.Character
-
-    if backpack then
-        for _, tool in ipairs(backpack:GetChildren()) do
-            ApplyGhostGun(tool)
-        end
-    end
-
-    if character then
-        for _, tool in ipairs(character:GetChildren()) do
-            ApplyGhostGun(tool)
-        end
-    end
-end
-
-local ghostConnection = RunService.Heartbeat:Connect(function()
-    if Settings.GhostGunsEnabled then
-        UpdateGhostGuns()
-    end
-end)
 
 --============================================================
 -- HUD & FOV CIRCLES
@@ -984,82 +834,21 @@ afkConnection = LocalPlayer.Idled:Connect(function()
 end)
 
 local function UnloadScript()
-    -- Disconnect connections
-    local connections = {
-        renderConnection,
-        steppedConnection,
-        inputConnection,
-        afkConnection,
-        cursorConnection,
-        ghostConnection
-    }
+    if renderConnection then renderConnection:Disconnect() end
+    if steppedConnection then steppedConnection:Disconnect() end
+    if inputConnection then inputConnection:Disconnect() end
+    if afkConnection then afkConnection:Disconnect() end
+    
+    Lighting.Ambient = origAmbient
+    Lighting.Brightness = origBrightness
+    Lighting.GlobalShadows = origShadows
 
-    for _, connection in ipairs(connections) do
-        if connection then
-            pcall(function()
-                connection:Disconnect()
-            end)
-        end
-    end
+    for obj, mat in pairs(originalMaterials) do if obj and obj.Parent then obj.Material = mat end end
+    for obj, trans in pairs(originalTransparencies) do if obj and obj.Parent then obj.Transparency = trans end end
 
-    renderConnection = nil
-    steppedConnection = nil
-    inputConnection = nil
-    afkConnection = nil
-    cursorConnection = nil
-    ghostConnection = nil
-
-    -- Restore lighting
-    pcall(function()
-        Lighting.Ambient = origAmbient
-        Lighting.Brightness = origBrightness
-        Lighting.GlobalShadows = origShadows
-    end)
-
-    -- Restore materials
-    for obj, mat in pairs(originalMaterials) do
-        if obj and obj.Parent then
-            pcall(function()
-                obj.Material = mat
-            end)
-        end
-    end
-
-    -- Restore transparency
-    for obj, trans in pairs(originalTransparencies) do
-        if obj and obj.Parent then
-            pcall(function()
-                obj.Transparency = trans
-            end)
-        end
-    end
-
-    -- Restore Ghost Guns
-    pcall(function()
-        RestoreGhostGuns()
-    end)
-
-    -- Restore cursor
-    pcall(function()
-        UserInputService.MouseIcon = originalMouseIcon
-        LocalPlayer:GetMouse().Icon = originalMouseIcon
-    end)
-
-    -- Destroy ESP objects
-    if espFolder then
-        pcall(function() espFolder:Destroy() end)
-    end
-
-    if tracerFolder then
-        pcall(function() tracerFolder:Destroy() end)
-    end
-
-    -- Destroy GUI
-    if ScreenGui then
-        pcall(function() ScreenGui:Destroy() end)
-    end
-
-    print("[KoSMO] Script unloaded successfully.")
+    if espFolder then espFolder:Destroy() end
+    if tracerFolder then tracerFolder:Destroy() end
+    if ScreenGui then ScreenGui:Destroy() end
 end
 
 --============================================================
@@ -1604,127 +1393,17 @@ end
 
 local function RenderVisuals()
     ClearContent()
+    Section("ESP PLAYER TRACKING", "ESP bounding boxes and details")
+    Toggle("Enable ESP", Settings.ESPEnabled, function(v) Settings.ESPEnabled = v end)
+    Toggle("ESP Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
+    Toggle("ESP Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
+    Toggle("ESP Distance", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
+    Toggle("ESP Health", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Toggle("ESP Tracers", Settings.ESPTracers, function(v) Settings.ESPTracers = v end)
+    Toggle("ESP Chams", Settings.ESPChams, function(v) Settings.ESPChams = v end)
 
-    Section("MERDOSA ESP V2", "NEON SCANNER • Player tracking")
-
-    Toggle("ESP Master", Settings.ESPEnabled, function(v)
-        Settings.ESPEnabled = v
-    end)
-
-    Toggle("Box ESP", Settings.ESPBoxes, function(v)
-        Settings.ESPBoxes = v
-    end)
-
-    Toggle("Name ESP", Settings.ESPNames, function(v)
-        Settings.ESPNames = v
-    end)
-
-    Toggle("Health Bar", Settings.ESPHealth, function(v)
-        Settings.ESPHealth = v
-    end)
-
-    Toggle("Distance ESP", Settings.ESPDistance, function(v)
-        Settings.ESPDistance = v
-    end)
-
-    Toggle("Skeleton ESP R6/R15", Settings.ESPSkeleton, function(v)
-        Settings.ESPSkeleton = v
-    end)
-
-    Toggle("3D Neon Scanner", Settings.ESPScanner, function(v)
-        Settings.ESPScanner = v
-    end)
-
-    Toggle("Visible Check", Settings.ESPVisibleCheck, function(v)
-        Settings.ESPVisibleCheck = v
-    end)
-
-    Slider("Skeleton Thickness", 1, 5, Settings.ESPSkeletonThickness, " px", function(v)
-        Settings.ESPSkeletonThickness = v
-    end)
-
-    Section("GHOST GUNS", "Custom weapon material and colors")
-
-    Toggle("Enable Ghost Guns", Settings.GhostGunsEnabled, function(v)
-        Settings.GhostGunsEnabled = v
-        if not v then
-            RestoreGhostGuns()
-        else
-            UpdateGhostGuns()
-        end
-    end)
-
-    local colors = {"Cyan", "Purple", "Red", "Green", "White", "Pink", "Orange"}
-
-    for _, colorName in ipairs(colors) do
-        ActionButton(
-            (Settings.GhostGunsColor == colorName and "✓ " or "") .. colorName,
-            GhostGunColors[colorName],
-            function()
-                Settings.GhostGunsColor = colorName
-                UpdateGhostGuns()
-                RenderVisuals()
-            end
-        )
-    end
-
-    Section("CUSTOM CURSOR", "Use your own Roblox cursor asset")
-
-    Toggle("Enable Custom Cursor", Settings.CursorEnabled, function(v)
-        Settings.CursorEnabled = v
-        if not v then
-            pcall(function()
-                UserInputService.MouseIcon = originalMouseIcon
-                LocalPlayer:GetMouse().Icon = originalMouseIcon
-            end)
-        end
-    end)
-
-    local CursorRow = Create("Frame", {
-        Size = UDim2.new(1, -5, 0, 44),
-        BackgroundColor3 = Settings.Element,
-        BorderSizePixel = 0
-    }, Content)
-
-    Corner(CursorRow, 8)
-
-    local CursorLabel = Label(CursorRow, "Cursor Asset ID", 10, Settings.Text)
-    CursorLabel.Position = UDim2.fromOffset(14, 0)
-    CursorLabel.Size = UDim2.new(0.4, 0, 1, 0)
-
-    local CursorBox = Create("TextBox", {
-        Size = UDim2.fromOffset(165, 28),
-        Position = UDim2.new(1, -179, 0.5, -14),
-        BackgroundColor3 = Settings.Panel,
-        Text = tostring(Settings.CursorAssetId),
-        PlaceholderText = "Asset ID...",
-        TextColor3 = Settings.Accent2,
-        TextSize = 10,
-        Font = Enum.Font.GothamBold,
-        ClearTextOnFocus = false
-    }, CursorRow)
-
-    Corner(CursorBox, 6)
-    Stroke(CursorBox, Settings.Border, 1)
-
-    CursorBox.FocusLost:Connect(function()
-        local id = CursorBox.Text:gsub("%s+", ""):gsub("rbxassetid://", "")
-
-        if id:match("^%d+$") then
-            Settings.CursorAssetId = id
-            CursorBox.Text = id
-        else
-            CursorBox.Text = tostring(Settings.CursorAssetId)
-        end
-    end)
-
-    RegisterControl(CursorRow, "Cursor Asset ID")
-
-    Section("ESP KEYBIND", "Toggle the ESP master switch")
-
-    Keybind("ESP Master Toggle Bind", Settings.ESPKey, function(k)
-        Settings.ESPKey = k
-    end)
+    Section("VISUALS KEYBINDS", "Hotkeys for visual features")
+    Keybind("ESP Master Toggle Bind", Settings.ESPKey, function(k) Settings.ESPKey = k end)
 end
 
 local function RenderMovement()
