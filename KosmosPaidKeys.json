@@ -43,5 +43,15 @@
         "created_at": "2026-11-19T21:55:06+00:00",
         "expires_at": "2026-11-20T21:55:05+00:00",
         "expires_ts": 1795211705
+    },
+    "KoSMO-UPM4-ZRFK": {
+        "hwid": null,
+        "used": false,
+        "rank": "Standard",
+        "duration": "5 Minutes",
+        "created_at": "2026-11-19T22:00:52+00:00",
+        "expires_at": "2026-11-19T22:05:51+00:00",
+        "expires_ts": 1795125951,
+        "assigned_to": "kosmontop"
     }
 }
