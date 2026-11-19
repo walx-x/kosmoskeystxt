@@ -35,15 +35,6 @@
         "expires_at": null,
         "expires_ts": null
     },
-    "KoSMO-XJU3-5LR8": {
-        "hwid": null,
-        "used": false,
-        "rank": "Standard",
-        "duration": "1 Day",
-        "created_at": "2026-11-19T21:55:06+00:00",
-        "expires_at": "2026-11-20T21:55:05+00:00",
-        "expires_ts": 1795211705
-    },
     "KoSMO-OJ0N-FJLO": {
         "hwid": null,
         "used": false,
