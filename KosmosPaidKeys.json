@@ -43,16 +43,5 @@
         "created_at": "2026-11-19T21:55:06+00:00",
         "expires_at": "2026-11-20T21:55:05+00:00",
         "expires_ts": 1795211705
-    },
-    "KoSMO-OH8Z-7K08": {
-        "hwid": null,
-        "used": false,
-        "rank": "Standard",
-        "duration": "5 Minutes",
-        "owner_id": 967429172702117949,
-        "owner_name": "kosmontop",
-        "created_at": "2026-11-19T22:08:39+00:00",
-        "expires_at": "2026-11-19T22:13:39+00:00",
-        "expires_ts": 1795126419
     }
 }
