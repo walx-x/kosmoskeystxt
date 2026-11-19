@@ -2,5 +2,8 @@
     "keylist_channel_id": 1568590206461022339,
     "keylist_message_ids": [
         1573108820807524415
-    ]
+    ],
+    "autofile_file": "zip",
+    "autofile_min_rank": "Pro",
+    "autofile_method": "file"
 }
