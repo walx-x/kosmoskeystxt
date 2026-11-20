@@ -56,16 +56,5 @@
         "created_at": "2026-11-20T16:00:27+00:00",
         "expires_at": "2026-11-21T04:00:27+00:00",
         "expires_ts": 1795233627
-    },
-    "KoSMO-A9UU-OFLI": {
-        "hwid": null,
-        "used": false,
-        "rank": "Pro",
-        "duration": "1 Month",
-        "owner_id": 1537363026158555226,
-        "owner_name": "kirbydontlock",
-        "created_at": "2026-11-20T21:59:47+00:00",
-        "expires_at": "2026-12-20T21:59:46+00:00",
-        "expires_ts": 1797803986
     }
 }
