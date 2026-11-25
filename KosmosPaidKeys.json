@@ -47,5 +47,16 @@
         "created_at": "2026-11-22T14:04:01+00:00",
         "expires_at": null,
         "expires_ts": null
+    },
+    "KoSMO-TXI5-JZHL": {
+        "hwid": null,
+        "used": false,
+        "rank": "Pro",
+        "duration": "1 Day",
+        "owner_id": 1561369273010487418,
+        "owner_name": "kassi_is_legit",
+        "created_at": "2026-11-25T15:58:34+00:00",
+        "expires_at": "2026-11-26T15:58:33+00:00",
+        "expires_ts": 1795708713
     }
 }
