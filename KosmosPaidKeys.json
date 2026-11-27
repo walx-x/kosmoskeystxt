@@ -17,15 +17,20 @@
         "roblox_username": "cagonnato"
     },
     "KoSMO-G1NC-J340": {
-        "hwid": null,
-        "hwid_bound": "no",
-        "used": false,
+        "hwid": "FCE8C16C-0888-4D74-8363-7F7A7689416C",
+        "hwid_bound": "yes",
+        "used": true,
         "rank": "Pro",
         "duration": "7 Days",
         "owner_id": 963184879057662012,
         "owner_name": "larperlarper",
         "created_at": "2026-11-27T23:42:52+00:00",
         "expires_at": "2026-12-04T23:42:51+00:00",
-        "expires_ts": 1796427771
+        "expires_ts": 1796427771,
+        "bound_at": "2026-11-27T23:53:37+00:00",
+        "roblox_usernames": [
+            "zwmqrSzn"
+        ],
+        "roblox_username": "zwmqrSzn"
     }
 }
