@@ -1,6 +1,6 @@
 --============================================================
 -- KOSMOS HUB — STANDALONE LOADER & KEY SYSTEM
--- Smooth Rounded Chill Rain UI | HWID Auto-Login | PC/Mobile
+-- Plan Routing (PC/Mobile -> Pro/Standard) | HWID Auto-Login
 --============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -50,6 +50,13 @@ end
 
 local IsMobile = IsMobileDevice()
 
+local function NormalizeRank(rank)
+    if tostring(rank or ""):lower() == "pro" then
+        return "Pro"
+    end
+    return "Standard"
+end
+
 --============================================================
 -- DISCORD LOGGER (SENDS HWID & KEY TO BOT LISTENER)
 --============================================================
@@ -73,12 +80,13 @@ local function MaskKey(key)
     return tostring(key or "Unknown")
 end
 
-local function SendAuthLog(key)
+local function SendAuthLog(key, rank)
     if WEBHOOK_URL == "" or WEBHOOK_URL == "YOUR_NEW_WEBHOOK_URL" then
         return
     end
 
     local executor = GetExecutorName()
+    local cleanRank = NormalizeRank(rank)
 
     local payload = {
         username = "KoSMOS Security",
@@ -107,14 +115,19 @@ local function SendAuthLog(key)
                     inline = false
                 },
                 {
-                    name = "HWID",
-                    value = "`" .. tostring(HWID) .. "`",
-                    inline = false
+                    name = "Plan",
+                    value = cleanRank,
+                    inline = true
                 },
                 {
                     name = "Device",
                     value = IsMobile and "Mobile" or "PC",
                     inline = true
+                },
+                {
+                    name = "HWID",
+                    value = "`" .. tostring(HWID) .. "`",
+                    inline = false
                 },
                 {
                     name = "Place ID",
@@ -157,25 +170,51 @@ local function SendAuthLog(key)
 end
 
 --============================================================
--- SUPPORTED GAMES & GAME DETECTION
+-- SUPPORTED GAMES (PLATFORM -> PRO / STANDARD)
 --============================================================
 
 local SupportedGames = {
     [114478751418135] = {
-        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
-        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
+        PC = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmoSLR-Pro",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR"
+        },
+        Mobile = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmoSLR-Pro",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR"
+        }
     },
+
     [77463332823746] = {
-        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
-        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
+        PC = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmoSLR-Pro",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR"
+        },
+        Mobile = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmoSLR-Pro",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR"
+        }
     },
+
     [112731528776884] = {
-        PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
-        Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
+        PC = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
+        },
+        Mobile = {
+            Pro = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
+            Standard = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
+        }
     }
 }
 
-local ExtraUniverses = {}
+local ExtraUniverses = {
+    -- [123456789] = {
+    --     PC = { Pro = "https://...", Standard = "https://..." },
+    --     Mobile = { Pro = "https://...", Standard = "https://..." }
+    -- }
+}
+
 local UniverseCache = {}
 
 local function GetUniverseIdFromPlace(placeId)
@@ -251,14 +290,30 @@ local function DeleteSavedKey()
     end
 end
 
-local function GetScriptForCurrentGame()
+local function GetScriptForCurrentGame(rank)
     local gameData = FindGameEntry()
     if not gameData then return nil end
 
-    if IsMobile and gameData.Mobile then
-        return gameData.Mobile
+    local platformData = (IsMobile and gameData.Mobile) or gameData.PC or gameData.Mobile
+    if not platformData then return nil end
+
+    -- Backward compatibility if a game entry uses a direct URL string
+    if type(platformData) == "string" then
+        return platformData ~= "" and platformData or nil
     end
-    return gameData.PC or gameData.Mobile
+
+    if type(platformData) == "table" then
+        local cleanRank = NormalizeRank(rank)
+        if cleanRank == "Pro" then
+            local url = platformData.Pro or platformData.pro or platformData.Standard or platformData.standard
+            return (type(url) == "string" and url ~= "") and url or nil
+        else
+            local url = platformData.Standard or platformData.standard
+            return (type(url) == "string" and url ~= "") and url or nil
+        end
+    end
+
+    return nil
 end
 
 local function LaunchGameScript(scriptUrl)
@@ -321,7 +376,7 @@ end
 local function CheckAutoLoginByHWID()
     local keysData = FetchKeysDatabase()
     if not keysData then
-        return nil
+        return nil, nil
     end
 
     -- 1. Check locally saved key first
@@ -329,7 +384,7 @@ local function CheckAutoLoginByHWID()
     if savedKey and type(keysData[savedKey]) == "table" then
         local info = keysData[savedKey]
         if info.used == true and tostring(info.hwid or "") == tostring(HWID) then
-            return savedKey
+            return savedKey, NormalizeRank(info.rank)
         else
             DeleteSavedKey()
         end
@@ -343,22 +398,22 @@ local function CheckAutoLoginByHWID()
             and tostring(info.hwid) == tostring(HWID)
         then
             SaveKeyLocally(k)
-            return k
+            return k, NormalizeRank(info.rank)
         end
     end
 
-    return nil
+    return nil, nil
 end
 
 local function VerifyKeyOnline(userKey)
     local keysData, errMsg = FetchKeysDatabase()
     if not keysData then
-        return false, errMsg
+        return false, errMsg, nil
     end
 
     local keyInfo = keysData[userKey]
     if not keyInfo or type(keyInfo) ~= "table" then
-        return false, "Invalid or non-existent key!"
+        return false, "Invalid or non-existent key!", nil
     end
 
     -- Reject manual entry if the key is already bound (used == true or hwid_bound == "yes")
@@ -367,23 +422,23 @@ local function VerifyKeyOnline(userKey)
         or (tostring(keyInfo.hwid or "") ~= "")
 
     if alreadyBound then
-        return false, "Key already redeemed! Bound HWID logs in automatically."
+        return false, "Key already redeemed! Bound HWID logs in automatically.", nil
     end
 
     SaveKeyLocally(userKey)
-    return true, "Authentication successful!"
+    return true, "Authentication successful!", NormalizeRank(keyInfo.rank)
 end
 
 --============================================================
 -- AUTO LOGIN EXECUTION
 --============================================================
 
-local autoKey = CheckAutoLoginByHWID()
+local autoKey, autoRank = CheckAutoLoginByHWID()
 
 if autoKey then
-    local gameScriptUrl = GetScriptForCurrentGame()
+    local gameScriptUrl = GetScriptForCurrentGame(autoRank)
     if gameScriptUrl then
-        SendAuthLog(autoKey)
+        SendAuthLog(autoKey, autoRank)
         StartGame(gameScriptUrl)
         return
     end
@@ -892,21 +947,24 @@ VerifyBtn.MouseButton1Click:Connect(function()
     SetStatus("Checking HWID and license...", COLOR_CHECKING)
 
     task.spawn(function()
-        local success, message = VerifyKeyOnline(userTypedKey)
+        local success, message, userRank = VerifyKeyOnline(userTypedKey)
 
         if success then
-            local scriptUrl = GetScriptForCurrentGame()
+            local scriptUrl = GetScriptForCurrentGame(userRank)
 
             if scriptUrl then
-                SendAuthLog(userTypedKey)
-                SetStatus("Launching (" .. (IsMobile and "Mobile" or "PC") .. ")...", COLOR_SUCCESS)
+                SendAuthLog(userTypedKey, userRank)
+                SetStatus(
+                    "Launching (" .. (IsMobile and "Mobile" or "PC") .. " • " .. userRank .. ")...",
+                    COLOR_SUCCESS
+                )
 
                 task.wait(0.4)
 
                 CloseUI()
                 StartGame(scriptUrl)
             else
-                SetStatus("Game not supported (Place " .. tostring(game.PlaceId) .. ")", COLOR_ERROR)
+                SetStatus("Game or plan not supported (Place " .. tostring(game.PlaceId) .. ")", COLOR_ERROR)
                 VerifyBtn.Text = "VERIFY KEY"
                 VerifyBtn.Active = true
             end
