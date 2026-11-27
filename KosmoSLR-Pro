@@ -1,1 +1,4104 @@
+--============================================================
+-- KoSMO HUB — OBSIDIAN PURPLE EDITION (FULL SUITE v2.5)
+-- Modular Register-Safe Architecture (<45 registers/frame)
+--============================================================
 
+if getgenv and getgenv().KoSMO_Cleanup then
+    pcall(getgenv().KoSMO_Cleanup)
+end
+
+--// SERVICES
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StatsService = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+--============================================================
+-- SHARED TABLES (PREVENTS LUAU 200 REGISTER OVERFLOW)
+--============================================================
+
+local Themes = {
+    ["Obsidian Purple"] = {
+        Accent = Color3.fromRGB(142, 74, 255),
+        AccentBright = Color3.fromRGB(178, 125, 255),
+        BorderAccent = Color3.fromRGB(122, 62, 230),
+        Hex = "#9b5cff"
+    },
+    ["Crimson Red"] = {
+        Accent = Color3.fromRGB(225, 55, 85),
+        AccentBright = Color3.fromRGB(255, 105, 130),
+        BorderAccent = Color3.fromRGB(190, 40, 68),
+        Hex = "#ff4d6d"
+    },
+    ["Emerald Matrix"] = {
+        Accent = Color3.fromRGB(46, 204, 113),
+        AccentBright = Color3.fromRGB(102, 235, 158),
+        BorderAccent = Color3.fromRGB(35, 168, 90),
+        Hex = "#2ecc71"
+    },
+    ["Cyber Cyan"] = {
+        Accent = Color3.fromRGB(0, 188, 228),
+        AccentBright = Color3.fromRGB(92, 225, 255),
+        BorderAccent = Color3.fromRGB(0, 150, 185),
+        Hex = "#00d4ff"
+    },
+    ["Amber Gold"] = {
+        Accent = Color3.fromRGB(235, 165, 42),
+        AccentBright = Color3.fromRGB(255, 202, 96),
+        BorderAccent = Color3.fromRGB(195, 132, 28),
+        Hex = "#f5b041"
+    }
+}
+
+local DefaultSettings = {
+    -- Silent Aim
+    Enabled = false,
+    ShowFOV = false,
+    ShowDot = false,
+    BaseFOV = 60,
+    DynamicFOV = false,
+    WallCheck = false,
+    CustomPart = false,
+    HitProbability = 100,
+    SilentKey = nil,
+    CustomPartKey = nil,
+    FOVColor = Color3.fromRGB(142, 74, 255),
+    RainbowFOV = false,
+    TargetColor = Color3.fromRGB(255, 65, 110),
+
+    -- Aimbot
+    AimbotEnabled = false,
+    AimbotMode = "Cursor",
+    AimbotFOV = 80,
+    AimbotSmoothness = 0.2,
+    AimbotCustomPart = false,
+    AimbotWallCheck = false,
+    AimbotShowFOV = false,
+    AimbotRainbowFOV = false,
+    AimbotFOVColor = Color3.fromRGB(165, 110, 255),
+    AimbotKey = nil,
+    AimbotCustomPartKey = nil,
+    AimbotWallCheckKey = nil,
+
+    -- Rage Mode
+    RageMode = false,
+    RageKey = nil,
+    RageHeight = 7,
+    RageTargetMode = "Aimbot Locked",
+
+    -- Combat Feedback & Stats
+    HitmarkerEnabled = false,
+    HitSoundEnabled = false,
+    ShowCombatStatsHUD = false,
+
+    -- Weapon Mods
+    WeaponAuto = false,
+    WeaponRapid = false,
+    WeaponNoRecoil = false,
+    RapidFireRate = 0.03,
+
+    -- Visuals & Pro Pooled ESP
+    ESPEnabled = false,
+    ESPBoxes = false,
+    ESPBoxStyle = "Corner",
+    ESPSkeleton = false,
+    ESPNames = false,
+    ESPDistance = false,
+    ESPHealth = false,
+    ESPWeapon = false,
+    ESPHeadDot = false,
+    ESPChams = false,
+    ESPTracers = false,
+    ESPTracerOrigin = "Bottom",
+    ESPTracerOnlyTarget = false,
+    ESPTeamCheck = false,
+    ESPWhitelistCheck = false,
+    ESPMaxDistance = 1500,
+    ESPKey = nil,
+    ESPColor = Color3.fromRGB(142, 74, 255),
+    ESPSkeletonColor = Color3.fromRGB(245, 243, 255),
+    ESPNameColor = Color3.fromRGB(245, 243, 255),
+    TracerColor = Color3.fromRGB(142, 74, 255),
+    ChamColor = Color3.fromRGB(142, 74, 255),
+    ChamOutlineColor = Color3.fromRGB(255, 255, 255),
+
+    -- Crosshair & Overlays
+    CrosshairEnabled = false,
+    CrosshairFollowMouse = false,
+    CrosshairSize = 10,
+    CrosshairOpacity = 90,
+    CrosshairColorName = "Theme Accent",
+    ShowFOVDisplay = false,
+    PerformanceOverlay = false,
+    UITransparency = 0,
+
+    -- Custom Audio, Skins, Textures & Skybox (GitHub + Raw Photo Links + Roblox IDs)
+    HighSaturation = false,
+    SaturationAmount = 100,
+    CustomGunAudio = false,
+    CustomHeadshotAudio = false,
+    CustomSkitsAudio = false,
+    CustomGunSoundID = "rbxassetid://132078503796732",
+    CustomHeadshotSoundID = "rbxassetid://139219844119994",
+    CustomSkitsSoundID = "rbxassetid://103637182693391",
+
+    CustomAR15Skin = false,
+    CustomSMGSkin = false,
+    CustomSparksTexture = false,
+    CustomSkybox = false,
+    CustomAR15RobloxID = "",
+    CustomSMGRobloxID = "",
+    CustomSparksRobloxID = "",
+    CustomSkyboxRobloxID = "",
+
+    -- Movement & Player
+    EnableWalkSpeed = false,
+    WalkSpeed = 16,
+    WalkSpeedKey = nil,
+    ClickTP = false,
+    ClickTPKey = Enum.KeyCode.LeftControl,
+    Noclip = false,
+    FlyEnabled = false,
+    FlySpeed = 5,
+    Spinbot = false,
+    SpinSpeed = 30,
+    GhostMode = false,
+    ShowKeyDisplay = false,
+    ShowMovementHUD = false,
+
+    -- Adonis Admin Detector
+    AdminDetector = true,
+    AdminAutoLeave = false,
+    AdminAutoPanic = false,
+    AdminAlertSound = true,
+    AdminMinGroupRank = 100,
+
+    -- Misc & UI
+    Fullbright = false,
+    FPSBoost = false,
+    NoDecals = false,
+    AntiAFK = false,
+    ShowWatermark = true,
+    ShowNotifications = true,
+    UIScale = 100,
+    MenuAnimations = true,
+    ThemeName = "Obsidian Purple",
+    OverlayPosition = "Top Center",
+    UISounds = true,
+    UISoundVolume = 40,
+    ToggleKey = Enum.KeyCode.RightShift,
+    PanicKey = nil,
+    UnloadKey = nil,
+
+    -- Whitelist
+    Whitelist = {},
+    WhitelistCombatCheck = true,
+
+    -- Base Palette
+    BgMain = Color3.fromRGB(11, 10, 15),
+    BgCard = Color3.fromRGB(16, 14, 22),
+    BgControl = Color3.fromRGB(22, 19, 31),
+    BgHover = Color3.fromRGB(29, 25, 41),
+    Border = Color3.fromRGB(43, 36, 62),
+    BorderAccent = Color3.fromRGB(122, 62, 230),
+    Accent = Color3.fromRGB(142, 74, 255),
+    AccentBright = Color3.fromRGB(178, 125, 255),
+    Text = Color3.fromRGB(238, 236, 245),
+    SubText = Color3.fromRGB(132, 126, 152),
+    Green = Color3.fromRGB(78, 218, 140),
+    Red = Color3.fromRGB(238, 82, 108)
+}
+
+local Settings = {}
+for k, v in pairs(DefaultSettings) do
+    Settings[k] = (type(v) == "table") and {} or v
+end
+
+local State = {
+    ToggleUpdaters = {},
+    Connections = {},
+    ESPCache = {},
+    DetectedAdmins = {},
+    StatsLabelUpdaters = {},
+    SavedSounds = {},
+    OrigAmbient = Lighting.Ambient,
+    OrigBrightness = Lighting.Brightness,
+    OrigShadows = Lighting.GlobalShadows,
+    NewConfigInputName = "default",
+    SelectedDropdownConfig = "",
+    SoundInputName = "",
+    SoundInputID = "",
+    SelectedSavedSoundIdx = 1,
+    ActiveTabName = "Combat",
+    SubTabStates = { CombatLeft = "Main", CombatRight = "Main" },
+    CurrentAimbotTargetPlayer = nil,
+    CurrentSilentTargetPlayer = nil,
+    CurrentRageTarget = nil,
+    PanicActive = false,
+    SelectedPlayerObj = nil,
+    PlayerSearchQuery = "",
+    SpectatingPlayer = nil,
+    ActiveKey = "Not Found",
+    KeyExpiration = "Unknown",
+    WasNoclipActive = false,
+    SessionStats = {
+        DamageDealt = 0,
+        Kills = 0,
+        Deaths = 0,
+        Jumps = 0,
+        MovementTime = 0,
+        DistanceStuds = 0,
+        CurrentSpeed = 0,
+        LastAttackTick = 0
+    },
+    OriginalCollideStates = {},
+    OriginalMaterials = {},
+    OriginalTransparencies = {},
+    OriginalWeaponStatsByInstance = setmetatable({}, {__mode = "k"}),
+    OriginalWeaponStatsByKey = {},
+    OriginalWeaponAttrsByKey = {},
+    OriginalSoundIds = setmetatable({}, {__mode = "k"}),
+    OriginalAssetValues = setmetatable({}, {__mode = "k"}),
+    HookedSounds = setmetatable({}, {__mode = "k"}),
+    HookedAssets = setmetatable({}, {__mode = "k"}),
+    ReapplyingSound = setmetatable({}, {__mode = "k"}),
+    TrackedHumanoids = setmetatable({}, {__mode = "k"}),
+    CustomAssets = {},
+    SkyAssets = {},
+    UrlAssetCache = {},
+    UrlDownloading = {},
+    SparklesAsset = nil,
+    KosmoLogoAsset = nil,
+    AssetsDownloading = false,
+    LoaderToken = 0,
+    HitmarkerToken = 0
+}
+
+local AssetsCfg = {
+    KOSMO_LOGO_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/IMG_9759.webp",
+    HEADSHOT_REPLACEMENT = "rbxassetid://139219844119994",
+    HITMARKER_SOUND_ID = "rbxassetid://160432334",
+    ADMIN_ALERT_SOUND_ID = "rbxassetid://4590657391",
+    UI_CLICK_SOUND_ID = "rbxassetid://6895079853",
+    CUSTOM_GUN_SOUND = "rbxassetid://132078503796732",
+    CUSTOM_GLASS_IMPACT = "rbxassetid://93368405754266",
+    CUSTOM_NORMAL_IMPACT = "rbxassetid://126919040431196",
+    SKITS_OLD_ID = "5668123749",
+    SKITS_NEW_ID = "rbxassetid://103637182693391",
+    SMG_OLD_ID = "115247438097572",
+    AR15_OLD_ID = "78690555427970",
+    SPARKLES_OLD_ID = "13725820497",
+    SPARKLES_TEXTURE_URL = "https://raw.githubusercontent.com/walx-x/FILEMANAGEMENT/refs/heads/main/blue_sparks_1.webp",
+    SKYBOX_BASE_URL = "https://raw.githubusercontent.com/walx-x/FILEMANAGEMENT/refs/heads/main/",
+    CONFIG_FOLDER = "KoSMOHub_Configs",
+    SOUNDS_FILE = "KoSMOHub_Configs/saved_sounds.json",
+    AUTOLOAD_FILE = "KoSMOHub_Configs/autoload.txt",
+    TAB_ICONS = {
+        Combat = "rbxassetid://6023426915",
+        Visuals = "rbxassetid://6031763426",
+        Players = "rbxassetid://6034287594",
+        Weapon = "rbxassetid://6031229361",
+        Movement = "rbxassetid://6034509993",
+        Misc = "rbxassetid://6031280882",
+        Settings = "rbxassetid://6031265976"
+    },
+    DEFAULT_SOUNDS = {
+        { Name = "KoSMO Gun Default", Id = "rbxassetid://132078503796732" },
+        { Name = "KoSMO Headshot Default", Id = "rbxassetid://139219844119994" },
+        { Name = "KoSMO Skits Default", Id = "rbxassetid://103637182693391" },
+        { Name = "Skeet Hitmarker", Id = "rbxassetid://5447626464" }
+    },
+    ORIGINAL_SOUNDS = {
+        ["121032345433162"] = true, ["105114819523908"] = true, ["118748227971004"] = true,
+        ["101386695744508"] = true, ["128075579410777"] = true, ["86743530471215"] = true,
+        ["103322290498071"] = true, ["108727613914764"] = true, ["138207967361255"] = true,
+        ["127603239905615"] = true, ["122727185777303"] = true, ["72705344195957"] = true,
+        ["83029822256067"] = true, ["121976335605827"] = true, ["7842386350"] = true,
+        ["139907269526080"] = true, ["122983075254094"] = true
+    },
+    ORIGINAL_GLASS_IMPACTS = {
+        ["86372698433127"] = true, ["119114958617747"] = true, ["114250948379012"] = true
+    },
+    ORIGINAL_NORMAL_IMPACTS = {
+        ["131063827258241"] = true, ["106087320589167"] = true,
+        ["117929846868055"] = true, ["130515247611039"] = true
+    },
+    ASSET_REPLACEMENTS = {
+        ["115247438097572"] = "https://raw.githubusercontent.com/walx-x/FILEMANAGEMENT/refs/heads/main/sub.webp",
+        ["78690555427970"] = "https://raw.githubusercontent.com/walx-x/FILEMANAGEMENT/refs/heads/main/ar15b.webp"
+    },
+    SKYBOX_REPLACEMENTS = {
+        ["144933244"] = "backt_2.webp", ["144933299"] = "front_2.webp",
+        ["144933262"] = "right_2.webp", ["144933338"] = "left_2.webp",
+        ["144931530"] = "bottom_2.webp", ["144931564"] = "top_2.webp",
+        ["600830446"] = "backt_2.webp", ["600832720"] = "front_2.webp",
+        ["600833862"] = "right_2.webp", ["600886090"] = "left_2.webp",
+        ["600831635"] = "bottom_2.webp", ["600835177"] = "top_2.webp"
+    },
+    R15_BONES = {
+        {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+    },
+    R6_BONES = {
+        {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Torso", "Right Arm"},
+        {"Torso", "Left Leg"}, {"Torso", "Right Leg"}
+    },
+    SWATCH_PALETTE = {
+        Color3.fromRGB(142, 74, 255),
+        Color3.fromRGB(238, 82, 108),
+        Color3.fromRGB(78, 218, 140),
+        Color3.fromRGB(0, 200, 240),
+        Color3.fromRGB(245, 176, 65),
+        Color3.fromRGB(255, 255, 255),
+        Color3.fromRGB(255, 105, 180)
+    }
+}
+
+local UI = {
+    SmoothTween = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    FastTween = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    KeyBoxes = {},
+    HitmarkerLines = {},
+    TabButtons = {}
+}
+
+local Fn = {}
+
+--============================================================
+-- 1. CORE UI & UTILITY HELPERS
+--============================================================
+
+function Fn.Create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do obj[k] = v end
+    obj.Parent = parent
+    return obj
+end
+
+function Fn.Corner(obj, radius)
+    return Fn.Create("UICorner", { CornerRadius = UDim.new(0, radius) }, obj)
+end
+
+function Fn.Stroke(obj, color, transparency)
+    return Fn.Create("UIStroke", {
+        Color = color or Settings.Border,
+        Thickness = 1,
+        Transparency = transparency or 0.25,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    }, obj)
+end
+
+function Fn.Tween(obj, info, props)
+    if not Settings.MenuAnimations then
+        for k, v in pairs(props) do obj[k] = v end
+        return nil
+    end
+    local t = TweenService:Create(obj, info, props)
+    t:Play()
+    return t
+end
+
+function Fn.PlayUISound(soundId, volMult)
+    if not Settings.UISounds then return end
+    local s = Instance.new("Sound")
+    s.SoundId = soundId or AssetsCfg.UI_CLICK_SOUND_ID
+    s.Volume = (Settings.UISoundVolume / 100) * (volMult or 0.6)
+    s.Parent = UI.ScreenGui
+    s:Play()
+    task.delay(1.5, function() if s then s:Destroy() end end)
+end
+
+function Fn.Label(parent, text, size, color, font, alignX)
+    return Fn.Create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color or Settings.Text,
+        TextSize = size or 11,
+        Font = font or Enum.Font.GothamMedium,
+        TextXAlignment = alignX or Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
+    }, parent)
+end
+
+function Fn.MakeDraggable(frame)
+    frame.Active = true
+    local dragging, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+function Fn.GetCamera()
+    return workspace.CurrentCamera
+end
+
+function Fn.GetMousePosition()
+    return UserInputService:GetMouseLocation()
+end
+
+function Fn.GetAssetId(value)
+    if not value then return nil end
+    return tostring(value):match("%d+")
+end
+
+function Fn.NormalizeRobloxId(value)
+    local digits = Fn.GetAssetId(value)
+    if not digits or #digits < 4 then return nil end
+    return "rbxassetid://" .. digits
+end
+
+function Fn.HashUrl(url)
+    local h = 5381
+    for i = 1, #url do
+        h = ((h * 33) + string.byte(url, i)) % 2147483647
+    end
+    return tostring(h)
+end
+
+function Fn.LoadCustomTexture(url, fileName)
+    if not url or url == "" or not writefile or not isfile or not getcustomasset then return nil end
+    local ok, res = pcall(function()
+        if not isfile(fileName) then
+            writefile(fileName, game:HttpGet(url))
+        end
+        return getcustomasset(fileName)
+    end)
+    return ok and res or nil
+end
+
+function Fn.ResolveCustomAssetInput(rawValue)
+    if not rawValue then return nil end
+    local trimmed = tostring(rawValue):gsub("^%s+", ""):gsub("%s+$", "")
+    if trimmed == "" then return nil end
+
+    if trimmed:match("^https?://") then
+        if State.UrlAssetCache[trimmed] then
+            return State.UrlAssetCache[trimmed]
+        end
+        if not State.UrlDownloading[trimmed] then
+            State.UrlDownloading[trimmed] = true
+            task.spawn(function()
+                local ext = trimmed:match("%.([%a%d]+)%??") or "webp"
+                if #ext > 5 then ext = "webp" end
+                local fileName = "KoSMO_RawSkin_" .. Fn.HashUrl(trimmed) .. "." .. ext
+                local asset = Fn.LoadCustomTexture(trimmed, fileName)
+                State.UrlDownloading[trimmed] = nil
+                if asset then
+                    State.UrlAssetCache[trimmed] = asset
+                    Fn.RefreshAllVisualAssets()
+                end
+            end)
+        end
+        return nil
+    end
+
+    return Fn.NormalizeRobloxId(trimmed)
+end
+
+function Fn.EnsureLogoLoaded()
+    if State.KosmoLogoAsset then return State.KosmoLogoAsset end
+    State.KosmoLogoAsset = Fn.LoadCustomTexture(AssetsCfg.KOSMO_LOGO_URL, "KosmoLogo_9759.webp")
+    return State.KosmoLogoAsset or AssetsCfg.KOSMO_LOGO_URL
+end
+
+function Fn.EnsureCustomAssetsLoaded()
+    if State.AssetsDownloading then return end
+    State.AssetsDownloading = true
+    for assetId, url in pairs(AssetsCfg.ASSET_REPLACEMENTS) do
+        if not State.CustomAssets[assetId] then
+            local asset = Fn.LoadCustomTexture(url, "CustomAsset_" .. assetId .. ".webp")
+            if asset then State.CustomAssets[assetId] = asset end
+        end
+        task.wait(0.05)
+    end
+    for assetId, file in pairs(AssetsCfg.SKYBOX_REPLACEMENTS) do
+        if not State.SkyAssets[assetId] then
+            local asset = Fn.LoadCustomTexture(AssetsCfg.SKYBOX_BASE_URL .. file, file)
+            if asset then State.SkyAssets[assetId] = asset end
+        end
+        task.wait(0.05)
+    end
+    if not State.SparklesAsset then
+        State.SparklesAsset = Fn.LoadCustomTexture(AssetsCfg.SPARKLES_TEXTURE_URL, "blue_sparks_1.webp")
+    end
+    for _, rawField in ipairs({
+        Settings.CustomAR15RobloxID,
+        Settings.CustomSMGRobloxID,
+        Settings.CustomSparksRobloxID,
+        Settings.CustomSkyboxRobloxID
+    }) do
+        if rawField and tostring(rawField):match("^%s*https?://") then
+            Fn.ResolveCustomAssetInput(rawField)
+        end
+    end
+    State.AssetsDownloading = false
+end
+
+--============================================================
+-- 2. KEYS, CONFIGS, PERSISTENT SOUNDS & FEATURE REPLACERS
+--============================================================
+
+function Fn.FetchKeyInformation()
+    local keyFilePath = "KosmosKey.txt"
+    if readfile and isfile and isfile(keyFilePath) then
+        local content = readfile(keyFilePath)
+        if content then State.ActiveKey = string.gsub(content, "%s+", "") end
+    end
+
+    if State.ActiveKey ~= "" and State.ActiveKey ~= "Not Found" then
+        local success, response = pcall(function()
+            return game:HttpGet("https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json")
+        end)
+        if success and response then
+            local ok, keysData = pcall(function() return HttpService:JSONDecode(response) end)
+            if ok and keysData and keysData[State.ActiveKey] then
+                local info = keysData[State.ActiveKey]
+                State.KeyExpiration = (info.duration == "lt" or info.expires_at == nil or info.expires_at == "null")
+                    and "Lifetime" or tostring(info.expires_at)
+            else
+                State.KeyExpiration = "Invalid Key"
+            end
+        else
+            State.KeyExpiration = "Offline"
+        end
+    else
+        State.KeyExpiration = "No Key"
+    end
+end
+
+function Fn.EnsureFolder()
+    if makefolder and isfolder and not isfolder(AssetsCfg.CONFIG_FOLDER) then
+        makefolder(AssetsCfg.CONFIG_FOLDER)
+    end
+end
+
+function Fn.LoadSavedSounds()
+    table.clear(State.SavedSounds)
+    for _, item in ipairs(AssetsCfg.DEFAULT_SOUNDS) do
+        table.insert(State.SavedSounds, { Name = item.Name, Id = item.Id })
+    end
+    Fn.EnsureFolder()
+    if readfile and isfile and isfile(AssetsCfg.SOUNDS_FILE) then
+        local ok, data = pcall(function() return HttpService:JSONDecode(readfile(AssetsCfg.SOUNDS_FILE)) end)
+        if ok and type(data) == "table" then
+            for _, entry in ipairs(data) do
+                if type(entry) == "table" and entry.Name and entry.Id then
+                    local exists = false
+                    for _, cur in ipairs(State.SavedSounds) do
+                        if cur.Id == entry.Id and cur.Name == entry.Name then exists = true; break end
+                    end
+                    if not exists then
+                        table.insert(State.SavedSounds, { Name = tostring(entry.Name), Id = tostring(entry.Id) })
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Fn.SaveSoundsToFile()
+    Fn.EnsureFolder()
+    if writefile then
+        pcall(function()
+            writefile(AssetsCfg.SOUNDS_FILE, HttpService:JSONEncode(State.SavedSounds))
+        end)
+    end
+end
+
+function Fn.GetSavedConfigs()
+    Fn.EnsureFolder()
+    local configs = {}
+    if listfiles then
+        local ok, files = pcall(function() return listfiles(AssetsCfg.CONFIG_FOLDER) end)
+        if ok and files then
+            for _, filePath in ipairs(files) do
+                if filePath:sub(-5) == ".json" then
+                    local fileName = filePath:match("([^/^\\]+)%.json$")
+                    if fileName and fileName ~= "saved_sounds" then table.insert(configs, fileName) end
+                end
+            end
+        end
+    end
+    return configs
+end
+
+function Fn.SaveConfig(name)
+    Fn.EnsureFolder()
+    if not writefile or name == "" then return false end
+    local data = {}
+    for k, v in pairs(Settings) do
+        if typeof(v) == "Color3" then
+            data[k] = {R = v.R, G = v.G, B = v.B, Type = "Color3"}
+        elseif typeof(v) == "EnumItem" then
+            data[k] = {Name = v.Name, EnumType = tostring(v.EnumType), Type = "Enum"}
+        elseif type(v) ~= "table" then
+            data[k] = v
+        end
+    end
+    return pcall(function()
+        writefile(AssetsCfg.CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data))
+    end)
+end
+
+function Fn.DeleteConfig(name)
+    Fn.EnsureFolder()
+    if not delfile or not isfile then return false end
+    local filePath = AssetsCfg.CONFIG_FOLDER .. "/" .. name .. ".json"
+    if isfile(filePath) then return pcall(function() delfile(filePath) end) end
+    return false
+end
+
+function Fn.SetAutoLoadConfig(name)
+    Fn.EnsureFolder()
+    if writefile then writefile(AssetsCfg.AUTOLOAD_FILE, name or "") end
+end
+
+function Fn.GetAutoLoadConfig()
+    Fn.EnsureFolder()
+    if isfile and readfile and isfile(AssetsCfg.AUTOLOAD_FILE) then
+        local content = readfile(AssetsCfg.AUTOLOAD_FILE):gsub("%s+", "")
+        if content ~= "" then return content end
+    end
+    return nil
+end
+
+function Fn.ApplyHighSaturation(enabled)
+    local existing = nil
+    for _, effect in ipairs(Lighting:GetChildren()) do
+        if effect:IsA("ColorCorrectionEffect") and effect.Name == "KoSMO_HighSaturation" then
+            existing = effect
+            break
+        end
+    end
+
+    if enabled then
+        local cc = existing or Instance.new("ColorCorrectionEffect")
+        cc.Name = "KoSMO_HighSaturation"
+        cc.Saturation = math.clamp(Settings.SaturationAmount / 100, 0, 2)
+        cc.Contrast = 0.12
+        cc.Brightness = 0.02
+        cc.TintColor = Color3.fromRGB(255, 255, 255)
+        cc.Parent = Lighting
+    elseif existing then
+        existing:Destroy()
+    end
+end
+
+function Fn.ApplyGhostMode(enabled)
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+            obj.LocalTransparencyModifier = enabled and 0.65 or 0
+        elseif obj:IsA("Decal") or obj:IsA("Texture") then
+            obj.LocalTransparencyModifier = enabled and 0.65 or 0
+        end
+    end
+end
+
+function Fn.RestoreNoclipState()
+    for part, orig in pairs(State.OriginalCollideStates) do
+        if part and part.Parent then part.CanCollide = orig end
+    end
+    table.clear(State.OriginalCollideStates)
+end
+
+function Fn.RestoreWalkSpeedState()
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    if hum then hum.WalkSpeed = 16 end
+end
+
+function Fn.ApplyFPSBoost(enabled)
+    if enabled then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Material ~= Enum.Material.SmoothPlastic then
+                if not State.OriginalMaterials[obj] then State.OriginalMaterials[obj] = obj.Material end
+                obj.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    else
+        for obj, mat in pairs(State.OriginalMaterials) do
+            if obj and obj.Parent then obj.Material = mat end
+        end
+        table.clear(State.OriginalMaterials)
+    end
+end
+
+function Fn.ApplyNoDecals(enabled)
+    if enabled then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if (obj:IsA("Decal") or obj:IsA("Texture")) and obj.Transparency < 1 then
+                if State.OriginalTransparencies[obj] == nil then State.OriginalTransparencies[obj] = obj.Transparency end
+                obj.Transparency = 1
+            end
+        end
+    else
+        for obj, trans in pairs(State.OriginalTransparencies) do
+            if obj and obj.Parent then obj.Transparency = trans end
+        end
+        table.clear(State.OriginalTransparencies)
+    end
+end
+
+function Fn.ApplyFullbright(enabled)
+    if enabled then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Ambient = State.OrigAmbient
+        Lighting.Brightness = State.OrigBrightness
+        Lighting.GlobalShadows = State.OrigShadows
+    end
+end
+
+function Fn.ApplyToTool(tool)
+    if not tool or not tool:IsA("Tool") then return end
+
+    local containers = {}
+    for _, cname in ipairs({"Stats", "Configuration", "Settings", "GunStats"}) do
+        local f = tool:FindFirstChild(cname)
+        if f then table.insert(containers, f) end
+    end
+    table.insert(containers, tool)
+
+    local defs = {
+        {flag = Settings.WeaponAuto, names = {"GunType", "FireMode", "Mode"}, val = "Auto", boolNames = {"Auto", "Automatic", "FullAuto"}, boolVal = true},
+        {flag = Settings.WeaponRapid, names = {"FireRate", "Cooldown", "Delay", "ShootDelay"}, val = Settings.RapidFireRate},
+        {flag = Settings.WeaponNoRecoil, names = {"Recoil", "CameraRecoil", "Kick", "Spread"}, val = 0}
+    }
+
+    for _, d in ipairs(defs) do
+        for _, container in ipairs(containers) do
+            for _, sName in ipairs(d.names) do
+                local stat = container:FindFirstChild(sName)
+                if stat and stat:IsA("ValueBase") then
+                    local key = tool.Name .. "::" .. container.Name .. "::" .. sName
+                    if d.flag then
+                        if State.OriginalWeaponStatsByKey[key] == nil then
+                            State.OriginalWeaponStatsByKey[key] = stat.Value
+                        end
+                        if State.OriginalWeaponStatsByInstance[stat] == nil then
+                            State.OriginalWeaponStatsByInstance[stat] = State.OriginalWeaponStatsByKey[key]
+                        end
+                        pcall(function() stat.Value = d.val end)
+                    else
+                        local orig = State.OriginalWeaponStatsByInstance[stat]
+                        if orig == nil then orig = State.OriginalWeaponStatsByKey[key] end
+                        if orig ~= nil then
+                            pcall(function() stat.Value = orig end)
+                            State.OriginalWeaponStatsByInstance[stat] = nil
+                        end
+                    end
+                end
+            end
+
+            if d.boolNames then
+                for _, bName in ipairs(d.boolNames) do
+                    local bStat = container:FindFirstChild(bName)
+                    if bStat and bStat:IsA("BoolValue") then
+                        local bKey = tool.Name .. "::" .. container.Name .. "::" .. bName
+                        if d.flag then
+                            if State.OriginalWeaponStatsByKey[bKey] == nil then
+                                State.OriginalWeaponStatsByKey[bKey] = bStat.Value
+                            end
+                            if State.OriginalWeaponStatsByInstance[bStat] == nil then
+                                State.OriginalWeaponStatsByInstance[bStat] = State.OriginalWeaponStatsByKey[bKey]
+                            end
+                            bStat.Value = d.boolVal
+                        else
+                            local orig = State.OriginalWeaponStatsByInstance[bStat]
+                            if orig == nil then orig = State.OriginalWeaponStatsByKey[bKey] end
+                            if orig ~= nil then
+                                bStat.Value = orig
+                                State.OriginalWeaponStatsByInstance[bStat] = nil
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        for _, attrName in ipairs(d.names) do
+            local curAttr = tool:GetAttribute(attrName)
+            if curAttr ~= nil then
+                local aKey = tool.Name .. "::ATTR::" .. attrName
+                if d.flag then
+                    if State.OriginalWeaponAttrsByKey[aKey] == nil then
+                        State.OriginalWeaponAttrsByKey[aKey] = curAttr
+                    end
+                    pcall(function() tool:SetAttribute(attrName, d.val) end)
+                elseif State.OriginalWeaponAttrsByKey[aKey] ~= nil then
+                    pcall(function() tool:SetAttribute(attrName, State.OriginalWeaponAttrsByKey[aKey]) end)
+                end
+            end
+        end
+    end
+end
+
+function Fn.ApplyToAllTools()
+    local containers = {
+        LocalPlayer:FindFirstChildOfClass("Backpack"),
+        LocalPlayer.Character,
+        LocalPlayer:FindFirstChild("StarterGear")
+    }
+    for _, cont in ipairs(containers) do
+        if cont then
+            for _, tool in ipairs(cont:GetChildren()) do
+                if tool:IsA("Tool") then Fn.ApplyToTool(tool) end
+            end
+        end
+    end
+end
+
+function Fn.ProcessSound(obj)
+    if not obj or not obj:IsA("Sound") or not obj.Parent then return end
+    if State.ReapplyingSound[obj] then return end
+
+    if not State.HookedSounds[obj] then
+        State.HookedSounds[obj] = true
+        obj:GetPropertyChangedSignal("SoundId"):Connect(function()
+            if not State.ReapplyingSound[obj] then Fn.ProcessSound(obj) end
+        end)
+    end
+
+    local origFull = State.OriginalSoundIds[obj] or obj.SoundId
+    local origId = Fn.GetAssetId(origFull)
+    if not origId then return end
+
+    if origId == AssetsCfg.SKITS_OLD_ID then
+        local customSkits = Fn.NormalizeRobloxId(Settings.CustomSkitsSoundID) or AssetsCfg.SKITS_NEW_ID
+        if Settings.CustomSkitsAudio then
+            if not State.OriginalSoundIds[obj] then State.OriginalSoundIds[obj] = obj.SoundId end
+            if obj.SoundId ~= customSkits then
+                State.ReapplyingSound[obj] = true
+                pcall(function() obj.SoundId = customSkits end)
+                State.ReapplyingSound[obj] = nil
+            end
+        elseif State.OriginalSoundIds[obj] then
+            State.ReapplyingSound[obj] = true
+            pcall(function() obj.SoundId = State.OriginalSoundIds[obj] end)
+            State.ReapplyingSound[obj] = nil
+            State.OriginalSoundIds[obj] = nil
+        end
+        return
+    end
+
+    local rep = nil
+    if AssetsCfg.ORIGINAL_SOUNDS[origId] then
+        rep = Fn.NormalizeRobloxId(Settings.CustomGunSoundID) or AssetsCfg.CUSTOM_GUN_SOUND
+    elseif AssetsCfg.ORIGINAL_GLASS_IMPACTS[origId] then
+        rep = AssetsCfg.CUSTOM_GLASS_IMPACT
+    elseif AssetsCfg.ORIGINAL_NORMAL_IMPACTS[origId] then
+        rep = AssetsCfg.CUSTOM_NORMAL_IMPACT
+    end
+
+    if rep then
+        if Settings.CustomGunAudio then
+            if not State.OriginalSoundIds[obj] then State.OriginalSoundIds[obj] = obj.SoundId end
+            if obj.SoundId ~= rep then
+                State.ReapplyingSound[obj] = true
+                pcall(function() obj.SoundId = rep end)
+                State.ReapplyingSound[obj] = nil
+            end
+        elseif State.OriginalSoundIds[obj] then
+            State.ReapplyingSound[obj] = true
+            pcall(function() obj.SoundId = State.OriginalSoundIds[obj] end)
+            State.ReapplyingSound[obj] = nil
+            State.OriginalSoundIds[obj] = nil
+        end
+    end
+end
+
+function Fn.ApplyHeadshots()
+    local weaponLocal = LocalPlayer:FindFirstChild("PlayerScripts") and LocalPlayer.PlayerScripts:FindFirstChild("Weapon_Local")
+    local headshots = weaponLocal and weaponLocal:FindFirstChild("Headshots")
+    if not headshots then return end
+
+    local targetHeadId = Fn.NormalizeRobloxId(Settings.CustomHeadshotSoundID) or AssetsCfg.HEADSHOT_REPLACEMENT
+    for _, obj in ipairs(headshots:GetDescendants()) do
+        if obj:IsA("Sound") then
+            if Settings.CustomHeadshotAudio then
+                if not State.OriginalSoundIds[obj] then State.OriginalSoundIds[obj] = obj.SoundId end
+                State.ReapplyingSound[obj] = true
+                pcall(function() obj.SoundId = targetHeadId end)
+                State.ReapplyingSound[obj] = nil
+            elseif State.OriginalSoundIds[obj] then
+                State.ReapplyingSound[obj] = true
+                pcall(function() obj.SoundId = State.OriginalSoundIds[obj] end)
+                State.ReapplyingSound[obj] = nil
+                State.OriginalSoundIds[obj] = nil
+            end
+        end
+    end
+end
+
+function Fn.ResolveSkinOrSparkReplacement(id)
+    if not id then return nil end
+    if id == AssetsCfg.AR15_OLD_ID then
+        if not Settings.CustomAR15Skin then return nil end
+        return Fn.ResolveCustomAssetInput(Settings.CustomAR15RobloxID) or State.CustomAssets[id]
+    elseif id == AssetsCfg.SMG_OLD_ID then
+        if not Settings.CustomSMGSkin then return nil end
+        return Fn.ResolveCustomAssetInput(Settings.CustomSMGRobloxID) or State.CustomAssets[id]
+    elseif id == AssetsCfg.SPARKLES_OLD_ID then
+        if not Settings.CustomSparksTexture then return nil end
+        return Fn.ResolveCustomAssetInput(Settings.CustomSparksRobloxID) or State.SparklesAsset
+    end
+    return nil
+end
+
+function Fn.ProcessAssetObject(obj)
+    if not obj or not obj.Parent then return end
+    local assetProps = {"Texture", "TextureID", "Image", "ColorMap"}
+    local skyProps = {"SkyboxBk", "SkyboxFt", "SkyboxRt", "SkyboxLf", "SkyboxDn", "SkyboxUp"}
+
+    for _, prop in ipairs(assetProps) do
+        local ok, val = pcall(function() return obj[prop] end)
+        if ok and typeof(val) == "string" then
+            local origVal = (State.OriginalAssetValues[obj] and State.OriginalAssetValues[obj][prop]) or val
+            local id = Fn.GetAssetId(origVal)
+            local rep = Fn.ResolveSkinOrSparkReplacement(id)
+            if rep then
+                if val ~= rep then
+                    if not State.OriginalAssetValues[obj] then State.OriginalAssetValues[obj] = {} end
+                    if not State.OriginalAssetValues[obj][prop] then State.OriginalAssetValues[obj][prop] = val end
+                    pcall(function() obj[prop] = rep end)
+                end
+            elseif State.OriginalAssetValues[obj] and State.OriginalAssetValues[obj][prop] then
+                pcall(function() obj[prop] = State.OriginalAssetValues[obj][prop] end)
+                State.OriginalAssetValues[obj][prop] = nil
+            end
+        end
+    end
+
+    if obj:IsA("Sky") then
+        local customSkyOverride = Fn.ResolveCustomAssetInput(Settings.CustomSkyboxRobloxID)
+        if Settings.CustomSkybox then
+            for _, prop in ipairs(skyProps) do
+                local ok, val = pcall(function() return obj[prop] end)
+                if ok and typeof(val) == "string" then
+                    local origVal = (State.OriginalAssetValues[obj] and State.OriginalAssetValues[obj][prop]) or val
+                    local id = Fn.GetAssetId(origVal)
+                    local rep = customSkyOverride or (id and State.SkyAssets[id])
+                    if rep and val ~= rep then
+                        if not State.OriginalAssetValues[obj] then State.OriginalAssetValues[obj] = {} end
+                        if not State.OriginalAssetValues[obj][prop] then State.OriginalAssetValues[obj][prop] = val end
+                        pcall(function() obj[prop] = rep end)
+                    end
+                end
+            end
+        elseif State.OriginalAssetValues[obj] then
+            for _, prop in ipairs(skyProps) do
+                if State.OriginalAssetValues[obj][prop] then
+                    pcall(function() obj[prop] = State.OriginalAssetValues[obj][prop] end)
+                    State.OriginalAssetValues[obj][prop] = nil
+                end
+            end
+        end
+    end
+
+    if not State.HookedAssets[obj] then
+        State.HookedAssets[obj] = true
+        for _, prop in ipairs(assetProps) do
+            pcall(function()
+                obj:GetPropertyChangedSignal(prop):Connect(function()
+                    if Settings.CustomAR15Skin or Settings.CustomSMGSkin or Settings.CustomSparksTexture then
+                        Fn.ProcessAssetObject(obj)
+                    end
+                end)
+            end)
+        end
+        if obj:IsA("Sky") then
+            for _, prop in ipairs(skyProps) do
+                pcall(function()
+                    obj:GetPropertyChangedSignal(prop):Connect(function()
+                        if Settings.CustomSkybox then Fn.ProcessAssetObject(obj) end
+                    end)
+                end)
+            end
+        end
+    end
+end
+
+function Fn.RefreshAllSounds()
+    for _, obj in ipairs(game:GetDescendants()) do
+        if obj:IsA("Sound") then Fn.ProcessSound(obj) end
+    end
+    Fn.ApplyHeadshots()
+end
+
+function Fn.RefreshAllVisualAssets()
+    local descendants = game:GetDescendants()
+    for i, obj in ipairs(descendants) do
+        Fn.ProcessAssetObject(obj)
+        if i % 400 == 0 then task.wait() end
+    end
+end
+
+function Fn.RefreshAllReplacers()
+    Fn.RefreshAllSounds()
+    task.spawn(function()
+        if Settings.CustomAR15Skin or Settings.CustomSMGSkin or Settings.CustomSparksTexture or Settings.CustomSkybox then
+            Fn.EnsureCustomAssetsLoaded()
+        end
+        Fn.RefreshAllVisualAssets()
+    end)
+end
+
+--============================================================
+-- 3. ADONIS ADMIN DETECTOR
+--============================================================
+
+function Fn.CountDetectedAdmins()
+    local c = 0
+    for _ in pairs(State.DetectedAdmins) do c += 1 end
+    return c
+end
+
+function Fn.EvaluatePlayerAdonisRank(player)
+    if not player or not player.Parent then return nil end
+
+    local keywords = {
+        "mod", "moderator", "admin", "administrator", "headadmin", "head admin",
+        "creator", "owner", "co-owner", "coowner", "founder", "dev", "developer",
+        "staff", "trial", "helper", "support", "manager", "supervisor", "overseer",
+        "enforcer", "director", "executive", "intern", "hr", "high rank"
+    }
+
+    local function matchesKw(str)
+        if not str or str == "" then return false end
+        local low = str:lower()
+        for _, kw in ipairs(keywords) do
+            if low:find(kw, 1, true) then return true end
+        end
+        return false
+    end
+
+    local function mapTier(rankNum, roleStr)
+        local low = (roleStr or ""):lower()
+        if low:find("creator") or low:find("owner") or low:find("founder") or rankNum >= 250 then
+            return "Creators (900)"
+        elseif low:find("head") or low:find("director") or low:find("manager") or rankNum >= 200 then
+            return "HeadAdmins (300)"
+        elseif low:find("admin") or low:find("dev") or rankNum >= 150 then
+            return "Admins (200)"
+        else
+            return "Moderators (100)"
+        end
+    end
+
+    if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+        return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = "Creators (900)", RoleDetail = "Game Owner" }
+    end
+
+    if game.CreatorType == Enum.CreatorType.Group and game.CreatorId > 0 then
+        local okRank, rankNum = pcall(function() return player:GetRankInGroup(game.CreatorId) end)
+        local okRole, roleStr = pcall(function() return player:GetRoleInGroup(game.CreatorId) end)
+        rankNum = (okRank and type(rankNum) == "number") and rankNum or 0
+        roleStr = (okRole and type(roleStr) == "string") and roleStr or ""
+
+        if rankNum >= Settings.AdminMinGroupRank or matchesKw(roleStr) then
+            return {
+                Name = player.Name,
+                DisplayName = player.DisplayName,
+                AdonisRank = mapTier(rankNum, roleStr),
+                RoleDetail = string.format("%s [%d]", roleStr ~= "" and roleStr or "Staff", rankNum)
+            }
+        end
+    end
+
+    local okAttr, attrs = pcall(function() return player:GetAttributes() end)
+    if okAttr and type(attrs) == "table" then
+        for k, v in pairs(attrs) do
+            local lk = tostring(k):lower()
+            if lk:find("admin") or lk:find("adonis") or lk:find("rank") or lk:find("staff") or lk:find("role") then
+                if type(v) == "number" and v >= 100 then
+                    return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = mapTier(v, tostring(k)), RoleDetail = string.format("Attr %s: %d", tostring(k), v) }
+                elseif type(v) == "string" and matchesKw(v) then
+                    return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = mapTier(100, v), RoleDetail = string.format("%s (%s)", v, tostring(k)) }
+                elseif v == true and (lk:find("admin") or lk:find("mod") or lk:find("staff")) then
+                    return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = "Moderators (100)", RoleDetail = tostring(k) }
+                end
+            end
+        end
+    end
+
+    local ls = player:FindFirstChild("leaderstats")
+    if ls then
+        for _, child in ipairs(ls:GetChildren()) do
+            if child:IsA("StringValue") and matchesKw(child.Value) then
+                return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = mapTier(100, child.Value), RoleDetail = child.Value }
+            elseif (child:IsA("IntValue") or child:IsA("NumberValue")) then
+                local cname = child.Name:lower()
+                if (cname:find("admin") or cname:find("rank") or cname:find("level")) and child.Value >= 100 then
+                    return { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = mapTier(child.Value, child.Name), RoleDetail = string.format("%s: %d", child.Name, child.Value) }
+                end
+            end
+        end
+    end
+
+    if typeof(getgc) == "function" then
+        local foundFromGC = nil
+        pcall(function()
+            for _, obj in ipairs(getgc(true)) do
+                if type(obj) == "table" then
+                    local lvl = rawget(obj, "AdminLevel") or rawget(obj, "Level")
+                    local user = rawget(obj, "Player") or rawget(obj, "UserId")
+                    if type(lvl) == "number" and lvl >= 100 and (user == player or user == player.UserId) then
+                        foundFromGC = { Name = player.Name, DisplayName = player.DisplayName, AdonisRank = mapTier(lvl, ""), RoleDetail = "Adonis Level " .. tostring(lvl) }
+                        break
+                    end
+                end
+            end
+        end)
+        if foundFromGC then return foundFromGC end
+    end
+
+    return nil
+end
+
+function Fn.InspectPlayerForAdmin(player, silentInit)
+    if not Settings.AdminDetector or not player or player == LocalPlayer then return end
+    task.spawn(function()
+        local info = Fn.EvaluatePlayerAdonisRank(player)
+        if info and player.Parent then
+            local alreadyKnown = State.DetectedAdmins[player] ~= nil
+            State.DetectedAdmins[player] = info
+
+            if not alreadyKnown then
+                if Settings.AdminAlertSound then
+                    local s = Instance.new("Sound")
+                    s.SoundId = AssetsCfg.ADMIN_ALERT_SOUND_ID
+                    s.Volume = 1
+                    s.Parent = UI.ScreenGui
+                    s:Play()
+                    task.delay(2, function() if s then s:Destroy() end end)
+                end
+
+                Fn.Notify("⚠ ADONIS STAFF DETECTED", string.format("%s (@%s) — %s", info.DisplayName, info.Name, info.RoleDetail), true, true)
+
+                if Settings.AdminAutoPanic and not State.PanicActive and Fn.TogglePanicMode then
+                    Fn.TogglePanicMode()
+                end
+
+                if Settings.AdminAutoLeave and not silentInit then
+                    task.wait(0.35)
+                    LocalPlayer:Kick("\n[KoSMO Admin Detector]\nAdonis Staff Joined: " .. info.Name .. " (" .. info.RoleDetail .. ")")
+                end
+            end
+        end
+    end)
+end
+
+function Fn.ScanAllPlayersForAdmin(manualTrigger)
+    table.clear(State.DetectedAdmins)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        Fn.InspectPlayerForAdmin(plr, not manualTrigger)
+    end
+    if manualTrigger then
+        task.delay(0.5, function()
+            local total = Fn.CountDetectedAdmins()
+            Fn.Notify("Adonis Detector", total > 0 and (total .. " staff member(s) found in server") or "No Adonis staff detected", true, total > 0)
+        end)
+    end
+end
+
+--============================================================
+-- 4. BUILD ALL GUI OVERLAYS & WINDOWS (DEDICATED STACK FRAME)
+--============================================================
+
+function Fn.BuildOverlaysAndWindow()
+    local GUI_NAME = "KoSMO_OBSIDIAN_UI"
+    if CoreGui:FindFirstChild(GUI_NAME) then CoreGui[GUI_NAME]:Destroy() end
+
+    UI.ScreenGui = Fn.Create("ScreenGui", {
+        Name = GUI_NAME,
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    }, CoreGui)
+
+    UI.EspFolder = Fn.Create("Folder", { Name = "KoSMO_ESP_Pool" }, UI.ScreenGui)
+
+    -- 10s Asset Loader Card
+    do
+        local card = Fn.Create("Frame", {
+            Name = "KoSMO_AssetLoader",
+            Size = UDim2.fromOffset(310, 142),
+            Position = UDim2.new(0.5, 0, 0.16, 0),
+            AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0.04,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 220
+        }, UI.ScreenGui)
+        Fn.Corner(card, 8)
+        UI.LoaderStroke = Fn.Stroke(card, Settings.BorderAccent, 0.2)
+        UI.AssetLoaderCard = card
+
+        UI.LoaderLogo = Fn.Create("ImageLabel", {
+            Size = UDim2.fromOffset(48, 48),
+            Position = UDim2.fromOffset(14, 14),
+            BackgroundColor3 = Settings.BgControl,
+            BorderSizePixel = 0,
+            Image = AssetsCfg.KOSMO_LOGO_URL,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 221
+        }, card)
+        Fn.Corner(UI.LoaderLogo, 8)
+        Fn.Stroke(UI.LoaderLogo, Settings.BorderAccent, 0.35)
+
+        UI.LoaderTitle = Fn.Label(card, "KoSMO Asset Loader", 13, Settings.AccentBright, Enum.Font.GothamBold)
+        UI.LoaderTitle.Position = UDim2.fromOffset(72, 16)
+        UI.LoaderTitle.Size = UDim2.new(1, -84, 0, 18)
+        UI.LoaderTitle.ZIndex = 221
+
+        UI.LoaderSub = Fn.Label(card, "Preparing custom textures & skybox...", 10, Settings.SubText, Enum.Font.GothamMedium)
+        UI.LoaderSub.Position = UDim2.fromOffset(72, 36)
+        UI.LoaderSub.Size = UDim2.new(1, -84, 0, 16)
+        UI.LoaderSub.ZIndex = 221
+
+        UI.LoaderStatus = Fn.Label(card, "KoSMO Loading Bar: 0% (10.0s)", 10, Settings.Text, Enum.Font.GothamBold)
+        UI.LoaderStatus.Position = UDim2.fromOffset(14, 76)
+        UI.LoaderStatus.Size = UDim2.new(1, -28, 0, 16)
+        UI.LoaderStatus.ZIndex = 221
+
+        local track = Fn.Create("Frame", {
+            Size = UDim2.new(1, -28, 0, 10),
+            Position = UDim2.fromOffset(14, 98),
+            BackgroundColor3 = Settings.BgControl,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 221
+        }, card)
+        Fn.Corner(track, 999)
+        Fn.Stroke(track, Settings.Border, 0.3)
+
+        UI.LoaderFill = Fn.Create("Frame", {
+            Size = UDim2.fromScale(0, 1),
+            BackgroundColor3 = Settings.Accent,
+            BorderSizePixel = 0,
+            ZIndex = 222
+        }, track)
+        Fn.Corner(UI.LoaderFill, 999)
+
+        local hint = Fn.Label(card, "Please wait ~10 seconds while assets are applied", 9, Settings.SubText, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+        hint.Position = UDim2.fromOffset(14, 114)
+        hint.Size = UDim2.new(1, -28, 0, 16)
+        hint.ZIndex = 221
+    end
+
+    -- Toast Holder
+    UI.ToastHolder = Fn.Create("Frame", {
+        Name = "ToastHolder",
+        Size = UDim2.fromOffset(245, 320),
+        Position = UDim2.new(1, -259, 1, -334),
+        BackgroundTransparency = 1,
+        ZIndex = 200
+    }, UI.ScreenGui)
+    Fn.Create("UIListLayout", { Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, UI.ToastHolder)
+
+    -- Draggable HUD Cards
+    do
+        UI.WatermarkBar = Fn.Create("Frame", {
+            Name = "WatermarkBar",
+            Size = UDim2.fromOffset(420, 24),
+            Position = UDim2.new(0.5, 0, 0, 10),
+            AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0.08,
+            BorderSizePixel = 0,
+            Visible = Settings.ShowWatermark,
+            ZIndex = 50
+        }, UI.ScreenGui)
+        Fn.Corner(UI.WatermarkBar, 6)
+        UI.WMStroke = Fn.Stroke(UI.WatermarkBar, Settings.BorderAccent, 0.4)
+        Fn.MakeDraggable(UI.WatermarkBar)
+
+        UI.WMText = Fn.Label(UI.WatermarkBar, "KoSMO  |  60 fps  |  0 ms  |  00:00:00  |  " .. LocalPlayer.Name, 10, Settings.Text, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+        UI.WMText.Size = UDim2.fromScale(1, 1)
+        UI.WMText.RichText = true
+        UI.WMText.ZIndex = 51
+
+        UI.PerfCard = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(220, 24),
+            Position = UDim2.new(0, 14, 0, 42),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0.1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 49
+        }, UI.ScreenGui)
+        Fn.Corner(UI.PerfCard, 5)
+        UI.PerfStroke = Fn.Stroke(UI.PerfCard, Settings.BorderAccent, 0.4)
+        UI.PerfText = Fn.Label(UI.PerfCard, "FPS: 60  |  Ping: 0ms  |  FOV: 70", 9, Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        UI.PerfText.Size = UDim2.fromScale(1, 1)
+        UI.PerfText.ZIndex = 50
+        Fn.MakeDraggable(UI.PerfCard)
+
+        UI.CombatHUDCard = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(220, 24),
+            Position = UDim2.new(0, 14, 0, 72),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0.1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 49
+        }, UI.ScreenGui)
+        Fn.Corner(UI.CombatHUDCard, 5)
+        UI.CombatHUDStroke = Fn.Stroke(UI.CombatHUDCard, Settings.BorderAccent, 0.4)
+        UI.CombatHUDText = Fn.Label(UI.CombatHUDCard, "K: 0  |  D: 0  |  K/D: 0.00  |  DMG: 0", 9, Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        UI.CombatHUDText.Size = UDim2.fromScale(1, 1)
+        UI.CombatHUDText.ZIndex = 50
+        Fn.MakeDraggable(UI.CombatHUDCard)
+
+        UI.MoveHUDCard = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(220, 24),
+            Position = UDim2.new(0, 14, 0, 102),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0.1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 49
+        }, UI.ScreenGui)
+        Fn.Corner(UI.MoveHUDCard, 5)
+        UI.MoveHUDStroke = Fn.Stroke(UI.MoveHUDCard, Settings.BorderAccent, 0.4)
+        UI.MoveHUDText = Fn.Label(UI.MoveHUDCard, "Spd: 0  |  Jumps: 0  |  Time: 00:00", 9, Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        UI.MoveHUDText.Size = UDim2.fromScale(1, 1)
+        UI.MoveHUDText.ZIndex = 50
+        Fn.MakeDraggable(UI.MoveHUDCard)
+    end
+
+    -- Draggable Keystrokes
+    do
+        UI.KeyDisplayFrame = Fn.Create("Frame", {
+            Name = "KeyDisplayFrame",
+            Size = UDim2.fromOffset(118, 96),
+            Position = UDim2.new(0, 14, 0.5, -48),
+            BackgroundTransparency = 1,
+            Visible = false,
+            ZIndex = 48
+        }, UI.ScreenGui)
+        Fn.MakeDraggable(UI.KeyDisplayFrame)
+
+        local function makeKeyTile(keyName, labelTxt, x, y, w, h)
+            local tile = Fn.Create("Frame", {
+                Size = UDim2.fromOffset(w, h),
+                Position = UDim2.fromOffset(x, y),
+                BackgroundColor3 = Settings.BgMain,
+                BackgroundTransparency = 0.12,
+                BorderSizePixel = 0,
+                ZIndex = 49
+            }, UI.KeyDisplayFrame)
+            Fn.Corner(tile, 4)
+            local st = Fn.Stroke(tile, Settings.Border, 0.25)
+            local lb = Fn.Label(tile, labelTxt, 9, Settings.SubText, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+            lb.Size = UDim2.fromScale(1, 1)
+            lb.ZIndex = 50
+            UI.KeyBoxes[keyName] = { Frame = tile, Stroke = st, Label = lb }
+        end
+
+        makeKeyTile("W", "W", 40, 0, 36, 28)
+        makeKeyTile("A", "A", 0, 32, 36, 28)
+        makeKeyTile("S", "S", 40, 32, 36, 28)
+        makeKeyTile("D", "D", 80, 32, 36, 28)
+        makeKeyTile("SPACE", "SPACE", 0, 64, 76, 24)
+        makeKeyTile("LMB", "LMB", 80, 64, 36, 24)
+    end
+
+    -- Hitmarker, Crosshair, FOV Circles, Target Dot
+    do
+        UI.HitmarkerHolder = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(24, 24),
+            Position = UDim2.fromScale(0.5, 0.5),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Visible = false,
+            ZIndex = 60
+        }, UI.ScreenGui)
+
+        for _, ang in ipairs({45, 135, 225, 315}) do
+            local rad = math.rad(ang)
+            local line = Fn.Create("Frame", {
+                Size = UDim2.fromOffset(8, 2),
+                Position = UDim2.new(0.5, math.cos(rad) * 7, 0.5, math.sin(rad) * 7),
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Rotation = ang,
+                BackgroundColor3 = Color3.new(1, 1, 1),
+                BorderSizePixel = 0,
+                ZIndex = 61
+            }, UI.HitmarkerHolder)
+            Fn.Corner(line, 1)
+            table.insert(UI.HitmarkerLines, line)
+        end
+
+        UI.CrosshairHolder = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(80, 80),
+            Position = UDim2.fromScale(0.5, 0.5),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Visible = false,
+            ZIndex = 45
+        }, UI.ScreenGui)
+
+        UI.CH_Top = Fn.Create("Frame", { AnchorPoint = Vector2.new(0.5, 1), BorderSizePixel = 0, ZIndex = 46 }, UI.CrosshairHolder)
+        UI.CH_Bot = Fn.Create("Frame", { AnchorPoint = Vector2.new(0.5, 0), BorderSizePixel = 0, ZIndex = 46 }, UI.CrosshairHolder)
+        UI.CH_Left = Fn.Create("Frame", { AnchorPoint = Vector2.new(1, 0.5), BorderSizePixel = 0, ZIndex = 46 }, UI.CrosshairHolder)
+        UI.CH_Right = Fn.Create("Frame", { AnchorPoint = Vector2.new(0, 0.5), BorderSizePixel = 0, ZIndex = 46 }, UI.CrosshairHolder)
+        UI.CH_Dot = Fn.Create("Frame", { Size = UDim2.fromOffset(2, 2), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0, ZIndex = 46 }, UI.CrosshairHolder)
+
+        UI.FOVFrame = Fn.Create("Frame", {
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(Settings.BaseFOV * 2, Settings.BaseFOV * 2),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Visible = false,
+            ZIndex = 5
+        }, UI.ScreenGui)
+        UI.FOVStroke = Fn.Create("UIStroke", { Color = Settings.FOVColor, Thickness = 1.2, Transparency = 0.2 }, UI.FOVFrame)
+        Fn.Corner(UI.FOVFrame, 999)
+
+        UI.AimbotFOVFrame = Fn.Create("Frame", {
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(Settings.AimbotFOV * 2, Settings.AimbotFOV * 2),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Visible = false,
+            ZIndex = 5
+        }, UI.ScreenGui)
+        UI.AimbotFOVStroke = Fn.Create("UIStroke", { Color = Settings.AimbotFOVColor, Thickness = 1.2, Transparency = 0.2 }, UI.AimbotFOVFrame)
+        Fn.Corner(UI.AimbotFOVFrame, 999)
+
+        UI.TargetDotFrame = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(6, 6),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Settings.TargetColor,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 10
+        }, UI.ScreenGui)
+        Fn.Create("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.2 }, UI.TargetDotFrame)
+        Fn.Corner(UI.TargetDotFrame, 999)
+    end
+
+    -- Main Window Frame
+    do
+        UI.Main = Fn.Create("Frame", {
+            Name = "Main",
+            Size = UDim2.fromOffset(630, 560),
+            Position = UDim2.fromScale(0.5, 0.5),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Settings.BgMain,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            Visible = false,
+            Active = true,
+            ClipsDescendants = true,
+            ZIndex = 10
+        }, UI.ScreenGui)
+        Fn.Corner(UI.Main, 6)
+        Fn.Stroke(UI.Main, Settings.Border, 0.15)
+        UI.MainScale = Fn.Create("UIScale", { Scale = 1 }, UI.Main)
+
+        local topHeader = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1, ZIndex = 12 }, UI.Main)
+        local dragging, dragStart, startPos
+        topHeader.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true; dragStart = input.Position; startPos = UI.Main.Position
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - dragStart
+                UI.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+
+        UI.HeaderTitle = Fn.Label(topHeader, "", 11, Settings.Text, Enum.Font.GothamBold)
+        UI.HeaderTitle.Position = UDim2.fromOffset(12, 0)
+        UI.HeaderTitle.Size = UDim2.new(0.6, 0, 1, 0)
+        UI.HeaderTitle.RichText = true
+        UI.HeaderTitle.Text = '<font color="#9b5cff">KoSMO</font>  <font color="#847e98">Interface</font>  <font color="#504868">v2.5</font>'
+
+        local headerUser = Fn.Label(topHeader, LocalPlayer.Name, 10, Settings.SubText, Enum.Font.GothamMedium, Enum.TextXAlignment.Right)
+        headerUser.Position = UDim2.new(0.6, 0, 0, 0)
+        headerUser.Size = UDim2.new(0.4, -12, 1, 0)
+
+        UI.TabBar = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 32), BackgroundColor3 = Color3.fromRGB(14, 12, 19), BorderSizePixel = 0, ZIndex = 12 }, UI.Main)
+        Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Settings.Border, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, UI.TabBar)
+        Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Settings.Border, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, UI.TabBar)
+
+        UI.TabContainer = Fn.Create("Frame", { Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1 }, UI.TabBar)
+        Fn.Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, UI.TabContainer)
+
+        local bodyFrame = Fn.Create("Frame", { Size = UDim2.new(1, -20, 1, -96), Position = UDim2.fromOffset(10, 70), BackgroundTransparency = 1, ZIndex = 11 }, UI.Main)
+
+        UI.LeftCol = Fn.Create("ScrollingFrame", { Size = UDim2.new(0.5, -5, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = Settings.Accent, ScrollBarImageTransparency = 0.5 }, bodyFrame)
+        local leftLayout = Fn.Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, UI.LeftCol)
+        leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            UI.LeftCol.CanvasSize = UDim2.new(0, 0, 0, leftLayout.AbsoluteContentSize.Y + 10)
+        end)
+
+        UI.RightCol = Fn.Create("ScrollingFrame", { Size = UDim2.new(0.5, -5, 1, 0), Position = UDim2.new(0.5, 5, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = Settings.Accent, ScrollBarImageTransparency = 0.5 }, bodyFrame)
+        local rightLayout = Fn.Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, UI.RightCol)
+        rightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            UI.RightCol.CanvasSize = UDim2.new(0, 0, 0, rightLayout.AbsoluteContentSize.Y + 10)
+        end)
+
+        UI.Footer = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -22), BackgroundColor3 = Color3.fromRGB(13, 11, 18), BorderSizePixel = 0, ZIndex = 12 }, UI.Main)
+        Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Settings.Border, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, UI.Footer)
+
+        local footLeft = Fn.Label(UI.Footer, "© 2026 KoSMO", 9, Settings.SubText)
+        footLeft.Position = UDim2.fromOffset(10, 0)
+        footLeft.Size = UDim2.new(0.33, 0, 1, 0)
+
+        local footCenter = Fn.Label(UI.Footer, "discord.gg/kosmo", 9, Settings.SubText, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+        footCenter.Position = UDim2.new(0.33, 0, 0, 0)
+        footCenter.Size = UDim2.new(0.34, 0, 1, 0)
+
+        UI.FootRight = Fn.Label(UI.Footer, "", 9, Settings.SubText, Enum.Font.GothamMedium, Enum.TextXAlignment.Right)
+        UI.FootRight.Position = UDim2.new(0.67, 0, 0, 0)
+        UI.FootRight.Size = UDim2.new(0.33, -10, 1, 0)
+        UI.FootRight.RichText = true
+        UI.FootRight.Text = 'Key: <font color="#9b5cff">' .. State.KeyExpiration .. '</font>'
+    end
+end
+
+--============================================================
+-- 5. STARTUP RAIN LOADER (ILLUMINATING CATEGORIES), ASSET LOADER, COMBAT & ESP
+--============================================================
+
+function Fn.PlayStartupRainLoader()
+    if not UI.ScreenGui then return end
+
+    local splash = Fn.Create("Frame", {
+        Name = "KoSMO_RainSplash",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Color3.fromRGB(7, 6, 12),
+        BorderSizePixel = 0,
+        ZIndex = 9990
+    }, UI.ScreenGui)
+
+    local rainBox = Fn.Create("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 9991
+    }, splash)
+
+    local running = true
+    for i = 1, 55 do
+        local drop = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(1, math.random(24, 52)),
+            Position = UDim2.new(math.random() * 1.15 - 0.05, 0, math.random() - 1, 0),
+            Rotation = 11,
+            BackgroundColor3 = (i % 3 == 0) and Settings.AccentBright or Settings.Accent,
+            BackgroundTransparency = math.random(40, 75) / 100,
+            BorderSizePixel = 0,
+            ZIndex = 9991
+        }, rainBox)
+
+        task.spawn(function()
+            while running and drop and drop.Parent do
+                local sx = math.random() * 1.15 - 0.05
+                drop.Position = UDim2.new(sx, 0, -0.1, 0)
+                local dur = math.random(50, 95) / 100
+                TweenService:Create(drop, TweenInfo.new(dur, Enum.EasingStyle.Linear), {
+                    Position = UDim2.new(sx - 0.08, 0, 1.12, 0)
+                }):Play()
+                task.wait(dur)
+            end
+        end)
+    end
+
+    local card = Fn.Create("Frame", {
+        Size = UDim2.fromOffset(490, 212),
+        Position = UDim2.fromScale(0.5, 0.5),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Settings.BgMain,
+        BackgroundTransparency = 0.04,
+        BorderSizePixel = 0,
+        ZIndex = 9995
+    }, splash)
+    Fn.Corner(card, 10)
+    Fn.Stroke(card, Settings.BorderAccent, 0.1)
+
+    local logo = Fn.Create("ImageLabel", {
+        Size = UDim2.fromOffset(50, 50),
+        Position = UDim2.fromOffset(20, 18),
+        BackgroundColor3 = Settings.BgControl,
+        BorderSizePixel = 0,
+        Image = AssetsCfg.KOSMO_LOGO_URL,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 9996
+    }, card)
+    Fn.Corner(logo, 8)
+    Fn.Stroke(logo, Settings.BorderAccent, 0.25)
+    task.spawn(function() logo.Image = Fn.EnsureLogoLoaded() end)
+
+    local title = Fn.Label(card, "", 18, Settings.Text, Enum.Font.GothamBold)
+    title.Position = UDim2.fromOffset(82, 18)
+    title.Size = UDim2.new(1, -160, 0, 24)
+    title.RichText = true
+    title.ZIndex = 9996
+    title.Text = '<font color="#9b5cff">KoSMO</font> <font color="#eeeef6">LOADING...</font>'
+
+    local pctLbl = Fn.Label(card, "0%", 14, Settings.AccentBright, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+    pctLbl.Size = UDim2.fromOffset(65, 24)
+    pctLbl.Position = UDim2.new(1, -85, 0, 18)
+    pctLbl.ZIndex = 9996
+
+    local sub = Fn.Label(card, "Booting Obsidian Core...", 11, Settings.SubText, Enum.Font.GothamMedium)
+    sub.Position = UDim2.fromOffset(82, 44)
+    sub.Size = UDim2.new(1, -100, 0, 18)
+    sub.ZIndex = 9996
+
+    local track = Fn.Create("Frame", {
+        Size = UDim2.new(1, -40, 0, 9),
+        Position = UDim2.fromOffset(20, 82),
+        BackgroundColor3 = Settings.BgControl,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 9996
+    }, card)
+    Fn.Corner(track, 999)
+    Fn.Stroke(track, Settings.Border, 0.25)
+
+    local fill = Fn.Create("Frame", {
+        Size = UDim2.fromScale(0, 1),
+        BackgroundColor3 = Settings.Accent,
+        BorderSizePixel = 0,
+        ZIndex = 9997
+    }, track)
+    Fn.Corner(fill, 999)
+
+    local catHeader = Fn.Label(card, "KoSMO MODULES & CATEGORIES", 9, Settings.SubText, Enum.Font.GothamBold)
+    catHeader.Position = UDim2.fromOffset(20, 102)
+    catHeader.Size = UDim2.new(1, -40, 0, 14)
+    catHeader.ZIndex = 9996
+
+    local catRow = Fn.Create("Frame", {
+        Size = UDim2.new(1, -40, 0, 68),
+        Position = UDim2.fromOffset(20, 122),
+        BackgroundTransparency = 1,
+        ZIndex = 9996
+    }, card)
+    Fn.Create("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 6),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, catRow)
+
+    local catNames = {"Combat", "Visuals", "Players", "Weapon", "Movement", "Misc", "Settings"}
+    local catTiles = {}
+
+    for idx, cName in ipairs(catNames) do
+        local tile = Fn.Create("Frame", {
+            Size = UDim2.fromOffset(58, 62),
+            BackgroundColor3 = Settings.BgControl,
+            BackgroundTransparency = 0.25,
+            BorderSizePixel = 0,
+            LayoutOrder = idx,
+            ZIndex = 9997
+        }, catRow)
+        Fn.Corner(tile, 6)
+        local st = Fn.Stroke(tile, Settings.Border, 0.35)
+
+        local ico = Fn.Create("ImageLabel", {
+            Size = UDim2.fromOffset(18, 18),
+            Position = UDim2.new(0.5, 0, 0, 12),
+            AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundTransparency = 1,
+            Image = AssetsCfg.TAB_ICONS[cName] or "",
+            ImageColor3 = Settings.SubText,
+            ZIndex = 9998
+        }, tile)
+
+        local lbl = Fn.Label(tile, cName, 9, Settings.SubText, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+        lbl.Size = UDim2.new(1, -4, 0, 16)
+        lbl.Position = UDim2.fromOffset(2, 36)
+        lbl.ZIndex = 9998
+
+        catTiles[idx] = { Tile = tile, Stroke = st, Icon = ico, Label = lbl, Lit = false }
+    end
+
+    local stages = {
+        { p = 0.15, cat = 1, t = "Loading Combat Engine: Silent Aim, Aimbot & Rage..." },
+        { p = 0.30, cat = 2, t = "Initializing Visuals: Skeleton ESP, Chams & Custom Skins..." },
+        { p = 0.45, cat = 3, t = "Syncing Players Radar & Adonis Admin Shield..." },
+        { p = 0.60, cat = 4, t = "Injecting Weapon Fire Mods & Sound Library..." },
+        { p = 0.75, cat = 5, t = "Configuring Movement: WalkSpeed, Fly & Click TP..." },
+        { p = 0.90, cat = 6, t = "Applying Misc Optimizations & FPS Boosters..." },
+        { p = 1.00, cat = 7, t = "Loading Settings & Profiles — Ready!" }
+    }
+
+    for _, st in ipairs(stages) do
+        sub.Text = st.t
+        pctLbl.Text = math.floor(st.p * 100) .. "%"
+        TweenService:Create(fill, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.fromScale(st.p, 1)
+        }):Play()
+
+        local ct = catTiles[st.cat]
+        if ct and not ct.Lit then
+            ct.Lit = true
+            TweenService:Create(ct.Tile, TweenInfo.new(0.25), {
+                BackgroundColor3 = Settings.Accent,
+                BackgroundTransparency = 0.72
+            }):Play()
+            TweenService:Create(ct.Stroke, TweenInfo.new(0.25), {
+                Color = Settings.AccentBright,
+                Transparency = 0
+            }):Play()
+            TweenService:Create(ct.Icon, TweenInfo.new(0.25), {
+                ImageColor3 = Settings.AccentBright
+            }):Play()
+            TweenService:Create(ct.Label, TweenInfo.new(0.25), {
+                TextColor3 = Color3.new(1, 1, 1)
+            }):Play()
+        end
+        task.wait(0.34)
+    end
+
+    task.wait(0.25)
+    running = false
+    TweenService:Create(splash, TweenInfo.new(0.32), { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(card, TweenInfo.new(0.28), { BackgroundTransparency = 1 }):Play()
+    task.wait(0.34)
+    if splash then splash:Destroy() end
+end
+
+function Fn.TriggerCustomAssetLoading(labelTitle)
+    State.LoaderToken += 1
+    local myToken = State.LoaderToken
+
+    UI.LoaderStroke.Color = Settings.BorderAccent
+    UI.LoaderTitle.TextColor3 = Settings.AccentBright
+    UI.LoaderFill.BackgroundColor3 = Settings.Accent
+    UI.LoaderTitle.Text = "KoSMO — " .. labelTitle
+    UI.LoaderSub.Text = "Downloading & applying custom files..."
+    UI.LoaderFill.Size = UDim2.fromScale(0, 1)
+    UI.LoaderStatus.Text = "KoSMO Loading Bar: 0%"
+    UI.AssetLoaderCard.Visible = true
+
+    task.spawn(function()
+        UI.LoaderLogo.Image = Fn.EnsureLogoLoaded()
+        Fn.EnsureCustomAssetsLoaded()
+    end)
+
+    task.spawn(function()
+        local totalDuration = 10.0
+        local startTick = tick()
+        local appliedMidway = false
+
+        while tick() - startTick < totalDuration do
+            if State.LoaderToken ~= myToken then return end
+            local elapsed = tick() - startTick
+            local pct = math.clamp(elapsed / totalDuration, 0, 1)
+            local remaining = math.max(0, totalDuration - elapsed)
+
+            UI.LoaderFill.Size = UDim2.fromScale(pct, 1)
+            UI.LoaderStatus.Text = string.format("KoSMO Loading Bar: %d%%  (%.1fs)", math.floor(pct * 100), remaining)
+
+            if pct >= 0.45 and not appliedMidway then
+                appliedMidway = true
+                UI.LoaderSub.Text = "Injecting skybox, skins & raw image links..."
+                task.spawn(Fn.RefreshAllVisualAssets)
+            end
+
+            task.wait(0.05)
+        end
+
+        if State.LoaderToken ~= myToken then return end
+        UI.LoaderFill.Size = UDim2.fromScale(1, 1)
+        UI.LoaderStatus.Text = "KoSMO Loading Bar: 100% — Complete!"
+        UI.LoaderSub.Text = "Custom assets applied successfully"
+        task.spawn(Fn.RefreshAllVisualAssets)
+        task.wait(0.9)
+        if State.LoaderToken == myToken then
+            UI.AssetLoaderCard.Visible = false
+        end
+    end)
+end
+
+function Fn.Notify(title, message, forceShow, isAlert)
+    if State.PanicActive then return end
+    if not Settings.ShowNotifications and not forceShow then return end
+
+    local borderCol = isAlert and Settings.Red or Settings.BorderAccent
+    local titleCol = isAlert and Settings.Red or Settings.AccentBright
+    local lineCol = isAlert and Settings.Red or Settings.Accent
+
+    local card = Fn.Create("Frame", {
+        Size = UDim2.new(1, 0, 0, 48),
+        BackgroundColor3 = Settings.BgMain,
+        BackgroundTransparency = 0.04,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 201
+    }, UI.ToastHolder)
+    Fn.Corner(card, 6)
+    Fn.Stroke(card, borderCol, 0.25)
+
+    local accentLine = Fn.Create("Frame", {
+        Size = UDim2.new(0, 2, 1, -12),
+        Position = UDim2.fromOffset(6, 6),
+        BackgroundColor3 = lineCol,
+        BorderSizePixel = 0,
+        ZIndex = 202
+    }, card)
+    Fn.Corner(accentLine, 2)
+
+    local tLbl = Fn.Label(card, title, 10, titleCol, Enum.Font.GothamBold)
+    tLbl.Position = UDim2.fromOffset(14, 7)
+    tLbl.Size = UDim2.new(1, -20, 0, 14)
+    tLbl.ZIndex = 202
+
+    local mLbl = Fn.Label(card, message, 10, Settings.Text, Enum.Font.GothamMedium)
+    mLbl.Position = UDim2.fromOffset(14, 23)
+    mLbl.Size = UDim2.new(1, -20, 0, 16)
+    mLbl.ZIndex = 202
+
+    card.Position = UDim2.fromOffset(40, 0)
+    Fn.Tween(card, UI.SmoothTween, { Position = UDim2.fromOffset(0, 0) })
+
+    task.delay(isAlert and 4.5 or 2.4, function()
+        if card and card.Parent then
+            Fn.Tween(card, UI.FastTween, { BackgroundTransparency = 1 })
+            Fn.Tween(tLbl, UI.FastTween, { TextTransparency = 1 })
+            Fn.Tween(mLbl, UI.FastTween, { TextTransparency = 1 })
+            Fn.Tween(accentLine, UI.FastTween, { BackgroundTransparency = 1 })
+            task.wait(0.15)
+            if card then card:Destroy() end
+        end
+    end)
+end
+
+function Fn.TriggerHitmarker()
+    if State.PanicActive then return end
+    if Settings.HitSoundEnabled then
+        local s = Instance.new("Sound")
+        s.SoundId = AssetsCfg.HITMARKER_SOUND_ID
+        s.Volume = 0.85
+        s.Parent = UI.ScreenGui
+        s:Play()
+        task.delay(1, function() if s then s:Destroy() end end)
+    end
+    if Settings.HitmarkerEnabled then
+        State.HitmarkerToken += 1
+        local myToken = State.HitmarkerToken
+        local mp = Fn.GetMousePosition()
+        UI.HitmarkerHolder.Position = UDim2.fromOffset(mp.X, mp.Y)
+        UI.HitmarkerHolder.Visible = true
+        for _, l in ipairs(UI.HitmarkerLines) do
+            l.BackgroundTransparency = 0
+            l.BackgroundColor3 = Settings.AccentBright
+        end
+        task.delay(0.16, function()
+            if State.HitmarkerToken == myToken then
+                for _, l in ipairs(UI.HitmarkerLines) do
+                    Fn.Tween(l, UI.FastTween, { BackgroundTransparency = 1 })
+                end
+                task.wait(0.14)
+                if State.HitmarkerToken == myToken then
+                    UI.HitmarkerHolder.Visible = false
+                end
+            end
+        end)
+    end
+end
+
+function Fn.UpdateCrosshairStyle()
+    local sz = Settings.CrosshairSize
+    local gap, thick = 4, 2
+    local c = Settings.CrosshairColorName
+    local col = (c == "White" and Color3.new(1, 1, 1))
+        or (c == "Green" and Settings.Green)
+        or (c == "Red" and Settings.Red)
+        or (c == "Cyan" and Color3.fromRGB(0, 225, 255))
+        or Settings.AccentBright
+    local trans = 1 - math.clamp(Settings.CrosshairOpacity / 100, 0.05, 1)
+
+    UI.CH_Top.Size = UDim2.fromOffset(thick, sz)
+    UI.CH_Top.Position = UDim2.new(0.5, 0, 0.5, -gap)
+    UI.CH_Bot.Size = UDim2.fromOffset(thick, sz)
+    UI.CH_Bot.Position = UDim2.new(0.5, 0, 0.5, gap)
+    UI.CH_Left.Size = UDim2.fromOffset(sz, thick)
+    UI.CH_Left.Position = UDim2.new(0.5, -gap, 0.5, 0)
+    UI.CH_Right.Size = UDim2.fromOffset(sz, thick)
+    UI.CH_Right.Position = UDim2.new(0.5, gap, 0.5, 0)
+
+    for _, part in ipairs({UI.CH_Top, UI.CH_Bot, UI.CH_Left, UI.CH_Right, UI.CH_Dot}) do
+        part.BackgroundColor3 = col
+        part.BackgroundTransparency = trans
+    end
+end
+
+function Fn.ApplyOverlayPosition()
+    local pos = Settings.OverlayPosition
+    if pos == "Top Left" then
+        UI.WatermarkBar.AnchorPoint = Vector2.new(0, 0)
+        UI.WatermarkBar.Position = UDim2.new(0, 14, 0, 10)
+        UI.PerfCard.Position = UDim2.new(0, 14, 0, 42)
+        UI.CombatHUDCard.Position = UDim2.new(0, 14, 0, 72)
+        UI.MoveHUDCard.Position = UDim2.new(0, 14, 0, 102)
+    elseif pos == "Top Right" then
+        UI.WatermarkBar.AnchorPoint = Vector2.new(1, 0)
+        UI.WatermarkBar.Position = UDim2.new(1, -14, 0, 10)
+        UI.PerfCard.Position = UDim2.new(1, -234, 0, 42)
+        UI.CombatHUDCard.Position = UDim2.new(1, -234, 0, 72)
+        UI.MoveHUDCard.Position = UDim2.new(1, -234, 0, 102)
+    elseif pos == "Bottom Left" then
+        UI.WatermarkBar.AnchorPoint = Vector2.new(0, 1)
+        UI.WatermarkBar.Position = UDim2.new(0, 14, 1, -14)
+        UI.PerfCard.Position = UDim2.new(0, 14, 1, -74)
+        UI.CombatHUDCard.Position = UDim2.new(0, 14, 1, -104)
+        UI.MoveHUDCard.Position = UDim2.new(0, 14, 1, -134)
+    else
+        UI.WatermarkBar.AnchorPoint = Vector2.new(0.5, 0)
+        UI.WatermarkBar.Position = UDim2.new(0.5, 0, 0, 10)
+        UI.PerfCard.Position = UDim2.new(0, 14, 0, 14)
+        UI.CombatHUDCard.Position = UDim2.new(0, 14, 0, 44)
+        UI.MoveHUDCard.Position = UDim2.new(0, 14, 0, 74)
+    end
+end
+
+function Fn.ExecuteClickTP()
+    local cam = Fn.GetCamera()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not cam or not root then return end
+
+    local mp = Fn.GetMousePosition()
+    local ray = cam:ViewportPointToRay(mp.X, mp.Y)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {char}
+
+    local result = workspace:Raycast(ray.Origin, ray.Direction * 2500, params)
+    if result and result.Position then
+        root.CFrame = CFrame.new(result.Position + Vector3.new(0, 3.2, 0)) * (root.CFrame - root.CFrame.Position)
+        root.AssemblyLinearVelocity = Vector3.zero
+    end
+end
+
+function Fn.IsIgnored(player)
+    if player == LocalPlayer then return true end
+    if Settings.WhitelistCombatCheck and Settings.Whitelist[player.Name] then return true end
+    return false
+end
+
+function Fn.IsTargetVisible(part, wallCheckEnabled)
+    if not wallCheckEnabled then return true end
+    local cam = Fn.GetCamera()
+    if not cam then return false end
+    return #cam:GetPartsObscuringTarget({part.Position}, {LocalPlayer.Character, part.Parent}) == 0
+end
+
+function Fn.GetCurrentFOV()
+    if not Settings.DynamicFOV then return Settings.BaseFOV end
+    local cam = Fn.GetCamera()
+    if not cam then return Settings.BaseFOV end
+    local camPos = cam.CFrame.Position
+    local closestDist = math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if not Fn.IsIgnored(player) and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (root.Position - camPos).Magnitude
+                if dist < closestDist then closestDist = dist end
+            end
+        end
+    end
+    if closestDist ~= math.huge and closestDist > 0 then
+        return math.clamp(Settings.BaseFOV * (50 / closestDist), 12, 1500)
+    end
+    return Settings.BaseFOV
+end
+
+function Fn.FindClosestTarget(maxDistance, customPart, wallCheck)
+    local cam = Fn.GetCamera()
+    if not cam then return nil, nil, nil end
+    local mousePos = Fn.GetMousePosition()
+    local bestDist, bestPart, bestScreenPos, bestPlayer = maxDistance, nil, nil, nil
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if not Fn.IsIgnored(player) and player.Character then
+            local char = player.Character
+            local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                if customPart then
+                    for _, obj in ipairs(char:GetChildren()) do
+                        if obj:IsA("BasePart") then
+                            local screenPos, onScreen = cam:WorldToViewportPoint(obj.Position)
+                            if onScreen and screenPos.Z > 0 then
+                                local vec = Vector2.new(screenPos.X, screenPos.Y)
+                                local dist = (vec - mousePos).Magnitude
+                                if dist <= bestDist and Fn.IsTargetVisible(obj, wallCheck) then
+                                    bestDist, bestPart, bestScreenPos, bestPlayer = dist, obj, vec, player
+                                end
+                            end
+                        end
+                    end
+                else
+                    local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    if part then
+                        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                        if onScreen and screenPos.Z > 0 then
+                            local vec = Vector2.new(screenPos.X, screenPos.Y)
+                            local dist = (vec - mousePos).Magnitude
+                            if dist <= bestDist and Fn.IsTargetVisible(part, wallCheck) then
+                                bestDist, bestPart, bestScreenPos, bestPlayer = dist, part, vec, player
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestPart, bestScreenPos, bestPlayer
+end
+
+function Fn.RunAimbot(targetPart, targetVector2)
+    if not targetPart then return end
+    if Settings.AimbotMode == "Memory" then
+        local cam = Fn.GetCamera()
+        if cam then
+            local goalCFrame = CFrame.new(cam.CFrame.Position, targetPart.Position)
+            cam.CFrame = cam.CFrame:Lerp(goalCFrame, math.clamp(Settings.AimbotSmoothness, 0.01, 1))
+        end
+    else
+        local mousePos = Fn.GetMousePosition()
+        local deltaX = (targetVector2.X - mousePos.X) * Settings.AimbotSmoothness
+        local deltaY = (targetVector2.Y - mousePos.Y) * Settings.AimbotSmoothness
+        if typeof(mousemoverel) == "function" then
+            mousemoverel(deltaX, deltaY)
+        else
+            local cam = Fn.GetCamera()
+            if cam then
+                local goalCFrame = CFrame.new(cam.CFrame.Position, targetPart.Position)
+                cam.CFrame = cam.CFrame:Lerp(goalCFrame, math.clamp(Settings.AimbotSmoothness, 0.01, 1))
+            end
+        end
+    end
+end
+
+function Fn.IsValidRageTarget(player)
+    if not player or not player.Parent or Fn.IsIgnored(player) then return false end
+    local char = player.Character
+    if not char then return false end
+    local hum = char:FindFirstChildWhichIsA("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    return hum and root and hum.Health > 0
+end
+
+function Fn.GetRageTarget()
+    if Settings.RageTargetMode == "Aimbot Locked" then
+        if Fn.IsValidRageTarget(State.CurrentAimbotTargetPlayer) then
+            State.CurrentRageTarget = State.CurrentAimbotTargetPlayer
+            return State.CurrentAimbotTargetPlayer
+        end
+        if Fn.IsValidRageTarget(State.CurrentRageTarget) then
+            State.CurrentAimbotTargetPlayer = State.CurrentRageTarget
+            return State.CurrentRageTarget
+        end
+    elseif Fn.IsValidRageTarget(State.CurrentRageTarget) then
+        return State.CurrentRageTarget
+    end
+    State.CurrentRageTarget = nil
+
+    local localChar = LocalPlayer.Character
+    local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+    local cam = Fn.GetCamera()
+    local mousePos = Fn.GetMousePosition()
+    local bestPlayer, bestMetric = nil, math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if Fn.IsValidRageTarget(player) then
+            local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            if (Settings.RageTargetMode == "Closest Cursor" or Settings.RageTargetMode == "Aimbot Locked") and cam then
+                local screenPos, onScreen = cam:WorldToViewportPoint(targetRoot.Position)
+                if onScreen and screenPos.Z > 0 then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if dist < bestMetric then bestMetric, bestPlayer = dist, player end
+                elseif localRoot then
+                    local dist = (targetRoot.Position - localRoot.Position).Magnitude + 5000
+                    if dist < bestMetric then bestMetric, bestPlayer = dist, player end
+                end
+            elseif localRoot then
+                local dist = (targetRoot.Position - localRoot.Position).Magnitude
+                if dist < bestMetric then bestMetric, bestPlayer = dist, player end
+            end
+        end
+    end
+
+    State.CurrentRageTarget = bestPlayer
+    if Settings.RageTargetMode == "Aimbot Locked" and bestPlayer then
+        State.CurrentAimbotTargetPlayer = bestPlayer
+    end
+    return bestPlayer
+end
+
+function Fn.UpdateRageMode()
+    if not Settings.RageMode then
+        State.CurrentRageTarget = nil
+        return
+    end
+    local localChar = LocalPlayer.Character
+    local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return end
+
+    local targetPlayer = Fn.GetRageTarget()
+    if not targetPlayer or not targetPlayer.Character then return end
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+
+    local abovePos = targetRoot.Position + Vector3.new(0, Settings.RageHeight, 0)
+    local lookVec = targetRoot.CFrame.LookVector
+    local flatLook = Vector3.new(lookVec.X, 0, lookVec.Z)
+
+    if flatLook.Magnitude > 0.01 then
+        localRoot.CFrame = CFrame.lookAt(abovePos, abovePos + flatLook.Unit)
+    else
+        localRoot.CFrame = CFrame.new(abovePos)
+    end
+    localRoot.AssemblyLinearVelocity = Vector3.zero
+    localRoot.AssemblyAngularVelocity = Vector3.zero
+end
+
+function Fn.GetOrCreateESP(player)
+    if State.ESPCache[player] then return State.ESPCache[player] end
+
+    local box = Fn.Create("Frame", { BackgroundTransparency = 1, Visible = false, ZIndex = 2 }, UI.EspFolder)
+    Fn.Create("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2.4, Transparency = 0.35 }, box)
+    local boxInner = Fn.Create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 3 }, box)
+    local boxStroke = Fn.Create("UIStroke", { Color = Settings.ESPColor, Thickness = 1.2 }, boxInner)
+
+    local corners = {}
+    for i = 1, 8 do
+        local seg = Fn.Create("Frame", { BorderSizePixel = 0, BackgroundColor3 = Settings.ESPColor, Visible = false, ZIndex = 3 }, UI.EspFolder)
+        Fn.Create("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 0.8, Transparency = 0.3 }, seg)
+        corners[i] = seg
+    end
+
+    local bones = {}
+    for i = 1, 14 do
+        bones[i] = Fn.Create("Frame", {
+            BorderSizePixel = 0,
+            BackgroundColor3 = Settings.ESPSkeletonColor,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Visible = false,
+            ZIndex = 3
+        }, UI.EspFolder)
+    end
+
+    local headDot = Fn.Create("Frame", { Size = UDim2.fromOffset(5, 5), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Settings.ESPColor, BorderSizePixel = 0, Visible = false, ZIndex = 4 }, UI.EspFolder)
+    Fn.Corner(headDot, 999)
+    Fn.Create("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1, Transparency = 0.2 }, headDot)
+
+    local tracer = Fn.Create("Frame", { BorderSizePixel = 0, BackgroundColor3 = Settings.TracerColor, AnchorPoint = Vector2.new(0.5, 0.5), Visible = false, ZIndex = 2 }, UI.EspFolder)
+    local nameLbl = Fn.Create("TextLabel", { Size = UDim2.fromOffset(240, 14), BackgroundTransparency = 1, TextColor3 = Settings.ESPNameColor, TextSize = 11, Font = Enum.Font.GothamBold, TextStrokeTransparency = 0.25, Visible = false, ZIndex = 4 }, UI.EspFolder)
+    local weaponLbl = Fn.Create("TextLabel", { Size = UDim2.fromOffset(200, 12), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(190, 185, 215), TextSize = 9, Font = Enum.Font.GothamBold, TextStrokeTransparency = 0.25, Visible = false, ZIndex = 4 }, UI.EspFolder)
+
+    local healthBg = Fn.Create("Frame", { BackgroundColor3 = Color3.fromRGB(14, 14, 20), BorderSizePixel = 0, Visible = false, ZIndex = 3 }, UI.EspFolder)
+    Fn.Create("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 0.8, Transparency = 0.2 }, healthBg)
+    local healthFill = Fn.Create("Frame", { BorderSizePixel = 0, ZIndex = 4 }, healthBg)
+
+    local highlight = Fn.Create("Highlight", { FillColor = Settings.ChamColor, FillTransparency = 0.55, OutlineColor = Settings.ChamOutlineColor, OutlineTransparency = 0.15, Enabled = false }, UI.EspFolder)
+
+    State.ESPCache[player] = {
+        Box = box, BoxStroke = boxStroke, Corners = corners, Bones = bones, HeadDot = headDot,
+        Tracer = tracer, Name = nameLbl, Weapon = weaponLbl,
+        HealthBg = healthBg, HealthFill = healthFill, Highlight = highlight
+    }
+    return State.ESPCache[player]
+end
+
+function Fn.HideESP(entry)
+    if not entry then return end
+    entry.Box.Visible = false
+    for i = 1, 8 do entry.Corners[i].Visible = false end
+    for i = 1, 14 do entry.Bones[i].Visible = false end
+    entry.HeadDot.Visible = false
+    entry.Tracer.Visible = false
+    entry.Name.Visible = false
+    entry.Weapon.Visible = false
+    entry.HealthBg.Visible = false
+    entry.Highlight.Enabled = false
+end
+
+function Fn.RemoveESP(player)
+    local entry = State.ESPCache[player]
+    if entry then
+        entry.Box:Destroy()
+        for i = 1, 8 do entry.Corners[i]:Destroy() end
+        for i = 1, 14 do entry.Bones[i]:Destroy() end
+        entry.HeadDot:Destroy()
+        entry.Tracer:Destroy()
+        entry.Name:Destroy()
+        entry.Weapon:Destroy()
+        entry.HealthBg:Destroy()
+        entry.Highlight:Destroy()
+        State.ESPCache[player] = nil
+    end
+end
+
+function Fn.RenderSkeletonESP(cam, char, entry, boneColor)
+    if not Settings.ESPSkeleton then
+        for i = 1, 14 do entry.Bones[i].Visible = false end
+        return
+    end
+
+    local boneList = char:FindFirstChild("UpperTorso") and AssetsCfg.R15_BONES or AssetsCfg.R6_BONES
+    for i = 1, 14 do
+        local pair = boneList[i]
+        local line = entry.Bones[i]
+        if pair then
+            local p1 = char:FindFirstChild(pair[1])
+            local p2 = char:FindFirstChild(pair[2])
+            if p1 and p2 and p1:IsA("BasePart") and p2:IsA("BasePart") then
+                local s1, on1 = cam:WorldToViewportPoint(p1.Position)
+                local s2, on2 = cam:WorldToViewportPoint(p2.Position)
+                if s1.Z > 0 and s2.Z > 0 and (on1 or on2) then
+                    local dx, dy = s2.X - s1.X, s2.Y - s1.Y
+                    line.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 1.4)
+                    line.Position = UDim2.fromOffset((s1.X + s2.X) * 0.5, (s1.Y + s2.Y) * 0.5)
+                    line.Rotation = math.deg(math.atan2(dy, dx))
+                    line.BackgroundColor3 = boneColor
+                    line.Visible = true
+                else
+                    line.Visible = false
+                end
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+end
+
+function Fn.UpdateESP()
+    if State.PanicActive or not Settings.ESPEnabled then
+        for _, entry in pairs(State.ESPCache) do Fn.HideESP(entry) end
+        return
+    end
+
+    local cam = Fn.GetCamera()
+    if not cam then return end
+    local viewportSize = cam.ViewportSize
+    local camPos = cam.CFrame.Position
+    local mousePos = Fn.GetMousePosition()
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+            local sameTeam = Settings.ESPTeamCheck and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team
+            local isWL = Settings.Whitelist[player.Name] == true
+            local hideWL = Settings.ESPWhitelistCheck and isWL
+
+            if root and humanoid and humanoid.Health > 0 and not sameTeam and not hideWL then
+                local studDist = (root.Position - camPos).Magnitude
+                if studDist <= Settings.ESPMaxDistance then
+                    local entry = Fn.GetOrCreateESP(player)
+                    local isStaff = State.DetectedAdmins[player] ~= nil
+                    local isLocked = (State.CurrentAimbotTargetPlayer == player) or (State.CurrentSilentTargetPlayer == player)
+                    local primaryCol = isStaff and Settings.Red or (isLocked and Settings.AccentBright or (isWL and Settings.Green or Settings.ESPColor))
+
+                    if Settings.ESPChams then
+                        entry.Highlight.Adornee = char
+                        entry.Highlight.FillColor = isStaff and Settings.Red or Settings.ChamColor
+                        entry.Highlight.OutlineColor = Settings.ChamOutlineColor
+                        entry.Highlight.Enabled = true
+                    else
+                        entry.Highlight.Enabled = false
+                    end
+
+                    Fn.RenderSkeletonESP(cam, char, entry, isStaff and Settings.Red or Settings.ESPSkeletonColor)
+
+                    local head = char:FindFirstChild("Head") or root
+                    local headCenter, headOnScreen = cam:WorldToViewportPoint(head.Position)
+                    local headPos, onScreen1 = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 1.15, 0))
+                    local legPos, onScreen2 = cam:WorldToViewportPoint(root.Position - Vector3.new(0, 3.1, 0))
+
+                    if headPos.Z > 0 and legPos.Z > 0 and (onScreen1 or onScreen2) then
+                        local boxHeight = math.abs(headPos.Y - legPos.Y)
+                        local boxWidth = boxHeight * 0.62
+                        local boxPosX = headPos.X - (boxWidth * 0.5)
+                        local boxPosY = headPos.Y
+
+                        if Settings.ESPBoxes then
+                            if Settings.ESPBoxStyle == "Corner" then
+                                entry.Box.Visible = false
+                                local cLen = math.clamp(boxWidth * 0.26, 4, 18)
+                                local t = 1.5
+                                local c = entry.Corners
+                                c[1].Position = UDim2.fromOffset(boxPosX, boxPosY); c[1].Size = UDim2.fromOffset(cLen, t)
+                                c[2].Position = UDim2.fromOffset(boxPosX, boxPosY); c[2].Size = UDim2.fromOffset(t, cLen)
+                                c[3].Position = UDim2.fromOffset(boxPosX + boxWidth - cLen, boxPosY); c[3].Size = UDim2.fromOffset(cLen, t)
+                                c[4].Position = UDim2.fromOffset(boxPosX + boxWidth - t, boxPosY); c[4].Size = UDim2.fromOffset(t, cLen)
+                                c[5].Position = UDim2.fromOffset(boxPosX, boxPosY + boxHeight - t); c[5].Size = UDim2.fromOffset(cLen, t)
+                                c[6].Position = UDim2.fromOffset(boxPosX, boxPosY + boxHeight - cLen); c[6].Size = UDim2.fromOffset(t, cLen)
+                                c[7].Position = UDim2.fromOffset(boxPosX + boxWidth - cLen, boxPosY + boxHeight - t); c[7].Size = UDim2.fromOffset(cLen, t)
+                                c[8].Position = UDim2.fromOffset(boxPosX + boxWidth - t, boxPosY + boxHeight - cLen); c[8].Size = UDim2.fromOffset(t, cLen)
+                                for i = 1, 8 do
+                                    c[i].BackgroundColor3 = primaryCol
+                                    c[i].Visible = true
+                                end
+                            else
+                                for i = 1, 8 do entry.Corners[i].Visible = false end
+                                entry.Box.Size = UDim2.fromOffset(boxWidth, boxHeight)
+                                entry.Box.Position = UDim2.fromOffset(boxPosX, boxPosY)
+                                entry.BoxStroke.Color = primaryCol
+                                entry.Box.Visible = true
+                            end
+                        else
+                            entry.Box.Visible = false
+                            for i = 1, 8 do entry.Corners[i].Visible = false end
+                        end
+
+                        if Settings.ESPHeadDot and headOnScreen then
+                            entry.HeadDot.Position = UDim2.fromOffset(headCenter.X, headCenter.Y)
+                            entry.HeadDot.BackgroundColor3 = primaryCol
+                            entry.HeadDot.Visible = true
+                        else
+                            entry.HeadDot.Visible = false
+                        end
+
+                        if Settings.ESPTracers and (not Settings.ESPTracerOnlyTarget or isLocked) then
+                            local startX, startY
+                            if Settings.ESPTracerOrigin == "Center" then
+                                startX, startY = viewportSize.X * 0.5, viewportSize.Y * 0.5
+                            elseif Settings.ESPTracerOrigin == "Top" then
+                                startX, startY = viewportSize.X * 0.5, 0
+                            elseif Settings.ESPTracerOrigin == "Mouse" then
+                                startX, startY = mousePos.X, mousePos.Y
+                            else
+                                startX, startY = viewportSize.X * 0.5, viewportSize.Y
+                            end
+
+                            local targetY = (Settings.ESPTracerOrigin == "Top") and boxPosY or legPos.Y
+                            local dx, dy = headPos.X - startX, targetY - startY
+                            entry.Tracer.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 1.3)
+                            entry.Tracer.Position = UDim2.fromOffset((startX + headPos.X) * 0.5, (startY + targetY) * 0.5)
+                            entry.Tracer.Rotation = math.deg(math.atan2(dy, dx))
+                            entry.Tracer.BackgroundColor3 = isStaff and Settings.Red or (isLocked and Settings.AccentBright or Settings.TracerColor)
+                            entry.Tracer.Visible = true
+                        else
+                            entry.Tracer.Visible = false
+                        end
+
+                        if Settings.ESPNames or Settings.ESPDistance then
+                            local prefix = isStaff and "[STAFF] " or (isLocked and "[LOCK] " or (isWL and "[WL] " or ""))
+                            local distStr = math.floor(studDist) .. "m"
+                            if Settings.ESPNames and Settings.ESPDistance then
+                                entry.Name.Text = string.format("%s%s(%s)", prefix, player.DisplayName, distStr)
+                            elseif Settings.ESPNames then
+                                entry.Name.Text = prefix .. player.DisplayName
+                            else
+                                entry.Name.Text = distStr
+                            end
+                            entry.Name.TextColor3 = isStaff and Settings.Red or Settings.ESPNameColor
+                            entry.Name.Position = UDim2.fromOffset(headPos.X - 120, boxPosY - 16)
+                            entry.Name.Visible = true
+                        else
+                            entry.Name.Visible = false
+                        end
+
+                        if Settings.ESPWeapon then
+                            local tool = char:FindFirstChildOfClass("Tool")
+                            entry.Weapon.Text = tool and ("[" .. tool.Name .. "]") or "[Unarmed]"
+                            entry.Weapon.Position = UDim2.fromOffset(headPos.X - 100, boxPosY + boxHeight + 2)
+                            entry.Weapon.Visible = true
+                        else
+                            entry.Weapon.Visible = false
+                        end
+
+                        if Settings.ESPHealth then
+                            local pct = math.clamp(humanoid.Health / math.max(1, humanoid.MaxHealth), 0, 1)
+                            local barH = boxHeight * pct
+                            entry.HealthBg.Size = UDim2.fromOffset(3, boxHeight)
+                            entry.HealthBg.Position = UDim2.fromOffset(boxPosX - 6, boxPosY)
+                            entry.HealthFill.Size = UDim2.fromOffset(3, barH)
+                            entry.HealthFill.Position = UDim2.fromOffset(0, boxHeight - barH)
+                            entry.HealthFill.BackgroundColor3 = Settings.Red:Lerp(Settings.Green, pct)
+                            entry.HealthBg.Visible = true
+                        else
+                            entry.HealthBg.Visible = false
+                        end
+                    else
+                        entry.Box.Visible = false
+                        for i = 1, 8 do entry.Corners[i].Visible = false end
+                        entry.HeadDot.Visible = false
+                        entry.Tracer.Visible = false
+                        entry.Name.Visible = false
+                        entry.Weapon.Visible = false
+                        entry.HealthBg.Visible = false
+                    end
+                else
+                    Fn.HideESP(State.ESPCache[player])
+                end
+            else
+                Fn.HideESP(State.ESPCache[player])
+            end
+        end
+    end
+end
+
+--============================================================
+-- 6. MENU STATE, THEMES & COMPONENT BUILDERS
+--============================================================
+
+function Fn.SetMenuVisible(state)
+    local targetScale = Settings.UIScale / 100
+    if state then
+        UI.Main.Visible = true
+        if Settings.MenuAnimations then
+            UI.MainScale.Scale = targetScale * 0.95
+            Fn.Tween(UI.MainScale, UI.SmoothTween, { Scale = targetScale })
+        else
+            UI.MainScale.Scale = targetScale
+        end
+    else
+        if Settings.MenuAnimations then
+            Fn.Tween(UI.MainScale, UI.FastTween, { Scale = targetScale * 0.95 })
+            task.delay(0.14, function()
+                if UI.MainScale.Scale <= (targetScale * 0.96) then UI.Main.Visible = false end
+            end)
+        else
+            UI.Main.Visible = false
+        end
+    end
+end
+
+function Fn.TogglePanicMode()
+    State.PanicActive = not State.PanicActive
+    if State.PanicActive then
+        UI.Main.Visible = false
+        UI.WatermarkBar.Visible = false
+        UI.PerfCard.Visible = false
+        UI.CombatHUDCard.Visible = false
+        UI.MoveHUDCard.Visible = false
+        UI.KeyDisplayFrame.Visible = false
+        UI.CrosshairHolder.Visible = false
+        UI.FOVFrame.Visible = false
+        UI.AimbotFOVFrame.Visible = false
+        UI.TargetDotFrame.Visible = false
+        UI.AssetLoaderCard.Visible = false
+    else
+        UI.WatermarkBar.Visible = Settings.ShowWatermark
+        Fn.SetMenuVisible(true)
+    end
+end
+
+function Fn.ApplyTheme(themeName)
+    local t = Themes[themeName] or Themes["Obsidian Purple"]
+    Settings.ThemeName = themeName
+    Settings.Accent = t.Accent
+    Settings.AccentBright = t.AccentBright
+    Settings.BorderAccent = t.BorderAccent
+
+    UI.WMStroke.Color = t.BorderAccent
+    UI.PerfStroke.Color = t.BorderAccent
+    UI.CombatHUDStroke.Color = t.BorderAccent
+    UI.MoveHUDStroke.Color = t.BorderAccent
+    UI.LeftCol.ScrollBarImageColor3 = t.Accent
+    UI.RightCol.ScrollBarImageColor3 = t.Accent
+
+    UI.HeaderTitle.Text = string.format('<font color="%s">KoSMO</font>  <font color="#847e98">Interface</font>  <font color="#504868">v2.5</font>', t.Hex)
+    UI.FootRight.Text = string.format('Key: <font color="%s">%s</font>', t.Hex, State.KeyExpiration)
+    Fn.UpdateCrosshairStyle()
+end
+
+function Fn.ApplyUITransparency()
+    local tr = math.clamp(Settings.UITransparency / 100, 0, 0.75)
+    UI.Main.BackgroundTransparency = tr
+    UI.TabBar.BackgroundTransparency = tr
+    UI.Footer.BackgroundTransparency = tr
+    for _, col in ipairs({UI.LeftCol, UI.RightCol}) do
+        for _, child in ipairs(col:GetChildren()) do
+            if child:IsA("Frame") then child.BackgroundTransparency = tr end
+        end
+    end
+end
+
+function Fn.ApplyAllSettingsState()
+    UI.WatermarkBar.Visible = Settings.ShowWatermark and not State.PanicActive
+    UI.MainScale.Scale = Settings.UIScale / 100
+    if not Settings.EnableWalkSpeed then Fn.RestoreWalkSpeedState() end
+    Fn.ApplyTheme(Settings.ThemeName)
+    Fn.ApplyUITransparency()
+    Fn.ApplyOverlayPosition()
+    Fn.UpdateCrosshairStyle()
+    Fn.ApplyGhostMode(Settings.GhostMode)
+    Fn.ApplyHighSaturation(Settings.HighSaturation)
+    Fn.ApplyFullbright(Settings.Fullbright)
+    Fn.ApplyFPSBoost(Settings.FPSBoost)
+    Fn.ApplyNoDecals(Settings.NoDecals)
+    Fn.ApplyToAllTools()
+    Fn.RefreshAllReplacers()
+    if Fn.SelectTab then Fn.SelectTab(State.ActiveTabName) end
+end
+
+function Fn.ResetAllSettings()
+    for k, v in pairs(DefaultSettings) do
+        Settings[k] = (type(v) == "table") and {} or v
+    end
+    State.CurrentRageTarget = nil
+    State.CurrentAimbotTargetPlayer = nil
+    State.CurrentSilentTargetPlayer = nil
+    Fn.ApplyAllSettingsState()
+    Fn.Notify("Settings", "All settings restored to defaults")
+end
+
+function Fn.LoadConfig(name)
+    Fn.EnsureFolder()
+    if not readfile or not isfile then return false end
+    local filePath = AssetsCfg.CONFIG_FOLDER .. "/" .. name .. ".json"
+    if not isfile(filePath) then return false end
+    local ok, result = pcall(function() return HttpService:JSONDecode(readfile(filePath)) end)
+    if ok and type(result) == "table" then
+        for k, v in pairs(result) do
+            if Settings[k] ~= nil then
+                if type(v) == "table" and v.Type == "Color3" then
+                    Settings[k] = Color3.new(v.R, v.G, v.B)
+                elseif type(v) == "table" and v.Type == "Enum" then
+                    local enumName = tostring(v.EnumType):gsub("^Enum%.", "")
+                    pcall(function() Settings[k] = Enum[enumName][v.Name] end)
+                else
+                    Settings[k] = v
+                end
+            end
+        end
+        Settings.WalkSpeed = math.clamp(Settings.WalkSpeed, 6, 45)
+        Settings.FlySpeed = math.clamp(Settings.FlySpeed, 1, 15)
+        Fn.ApplyAllSettingsState()
+        return true
+    end
+    return false
+end
+
+function Fn.UnloadScript()
+    Settings.RageMode = false
+    Settings.Noclip = false
+    Settings.FlyEnabled = false
+    Settings.EnableWalkSpeed = false
+    State.CurrentRageTarget = nil
+    State.CurrentAimbotTargetPlayer = nil
+    State.CurrentSilentTargetPlayer = nil
+
+    if State.SpectatingPlayer then
+        local cam = Fn.GetCamera()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        if cam and hum then cam.CameraSubject = hum end
+    end
+
+    for _, conn in ipairs(State.Connections) do
+        if conn and conn.Connected then conn:Disconnect() end
+    end
+    table.clear(State.Connections)
+
+    Fn.RestoreNoclipState()
+    Fn.RestoreWalkSpeedState()
+    Settings.GhostMode = false
+    Fn.ApplyGhostMode(false)
+    Fn.ApplyHighSaturation(false)
+    Fn.ApplyFullbright(false)
+    Fn.ApplyFPSBoost(false)
+    Fn.ApplyNoDecals(false)
+
+    Settings.WeaponAuto = false
+    Settings.WeaponRapid = false
+    Settings.WeaponNoRecoil = false
+    Fn.ApplyToAllTools()
+
+    Settings.CustomGunAudio = false
+    Settings.CustomHeadshotAudio = false
+    Settings.CustomSkitsAudio = false
+    Settings.CustomAR15Skin = false
+    Settings.CustomSMGSkin = false
+    Settings.CustomSparksTexture = false
+    Settings.CustomSkybox = false
+    Fn.RefreshAllReplacers()
+
+    if UI.ScreenGui then UI.ScreenGui:Destroy() end
+end
+
+if getgenv then
+    getgenv().KoSMO_Cleanup = Fn.UnloadScript
+end
+
+function Fn.ClearColumns()
+    table.clear(State.StatsLabelUpdaters)
+    table.clear(State.ToggleUpdaters)
+    for _, obj in ipairs(UI.LeftCol:GetChildren()) do
+        if not obj:IsA("UIListLayout") then obj:Destroy() end
+    end
+    for _, obj in ipairs(UI.RightCol:GetChildren()) do
+        if not obj:IsA("UIListLayout") then obj:Destroy() end
+    end
+end
+
+function Fn.CreateGroupCard(column, title, subTabs, activeSubTab, onSubTabChange)
+    local card = Fn.Create("Frame", {
+        Size = UDim2.new(1, -2, 0, 100),
+        BackgroundColor3 = Settings.BgCard,
+        BackgroundTransparency = math.clamp(Settings.UITransparency / 100, 0, 0.75),
+        BorderSizePixel = 0
+    }, column)
+    Fn.Corner(card, 6)
+    Fn.Stroke(card, Settings.Border, 0.25)
+
+    local header = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1 }, card)
+    Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Settings.Border, BackgroundTransparency = 0.45, BorderSizePixel = 0 }, header)
+
+    if subTabs and #subTabs > 0 then
+        local subHolder = Fn.Create("Frame", { Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1 }, header)
+        Fn.Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }, subHolder)
+
+        for _, stName in ipairs(subTabs) do
+            local isSel = (stName == activeSubTab)
+            local stBtn = Fn.Create("TextButton", {
+                Size = UDim2.fromOffset(0, 28),
+                AutomaticSize = Enum.AutomaticSize.X,
+                BackgroundTransparency = 1,
+                Text = stName,
+                TextColor3 = isSel and Settings.Text or Settings.SubText,
+                TextSize = 10,
+                Font = isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium,
+                AutoButtonColor = false
+            }, subHolder)
+
+            Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 1, -2), BackgroundColor3 = Settings.Accent, BackgroundTransparency = isSel and 0 or 1, BorderSizePixel = 0 }, stBtn)
+            stBtn.MouseButton1Click:Connect(function()
+                Fn.PlayUISound()
+                if onSubTabChange then onSubTabChange(stName) end
+            end)
+        end
+    else
+        local titleLbl = Fn.Label(header, title, 10, Settings.AccentBright, Enum.Font.GothamBold)
+        titleLbl.Position = UDim2.fromOffset(10, 0)
+        titleLbl.Size = UDim2.new(1, -20, 1, 0)
+    end
+
+    local inner = Fn.Create("Frame", { Size = UDim2.new(1, -20, 0, 0), Position = UDim2.fromOffset(10, 36), BackgroundTransparency = 1 }, card)
+    local innerLayout = Fn.Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, inner)
+    innerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local h = innerLayout.AbsoluteContentSize.Y
+        inner.Size = UDim2.new(1, -20, 0, h)
+        card.Size = UDim2.new(1, -2, 0, h + 46)
+    end)
+
+    return inner
+end
+
+function Fn.AddCheckbox(parent, name, defaultVal, callback, bindKeyGetter, bindKeySetter)
+    local row = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1 }, parent)
+    local clickArea = Fn.Create("TextButton", { Size = UDim2.new(1, bindKeyGetter and -58 or 0, 1, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false }, row)
+
+    local box = Fn.Create("Frame", { Size = UDim2.fromOffset(13, 13), Position = UDim2.new(0, 0, 0.5, -6), BackgroundColor3 = defaultVal and Settings.Accent or Settings.BgControl, BorderSizePixel = 0 }, clickArea)
+    Fn.Corner(box, 3)
+    local boxStroke = Fn.Stroke(box, defaultVal and Settings.AccentBright or Settings.Border, 0.2)
+
+    local check = Fn.Label(box, "✓", 9, Color3.new(1, 1, 1), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+    check.Size = UDim2.fromScale(1, 1)
+    check.TextTransparency = defaultVal and 0 or 1
+
+    local lbl = Fn.Label(clickArea, name, 10, defaultVal and Settings.Text or Settings.SubText, Enum.Font.GothamMedium)
+    lbl.Position = UDim2.fromOffset(20, 0)
+    lbl.Size = UDim2.new(1, -20, 1, 0)
+
+    local state = defaultVal
+    local function setVisual(val)
+        state = val
+        Fn.Tween(box, UI.FastTween, { BackgroundColor3 = val and Settings.Accent or Settings.BgControl })
+        Fn.Tween(boxStroke, UI.FastTween, { Color = val and Settings.AccentBright or Settings.Border })
+        Fn.Tween(check, UI.FastTween, { TextTransparency = val and 0 or 1 })
+        Fn.Tween(lbl, UI.FastTween, { TextColor3 = val and Settings.Text or Settings.SubText })
+    end
+
+    State.ToggleUpdaters[name] = setVisual
+    clickArea.MouseButton1Click:Connect(function()
+        Fn.PlayUISound()
+        local nextVal = not state
+        setVisual(nextVal)
+        if callback then callback(nextVal) end
+    end)
+
+    if bindKeyGetter and bindKeySetter then
+        local curKey = bindKeyGetter()
+        local keyBtn = Fn.Create("TextButton", { Size = UDim2.fromOffset(52, 16), Position = UDim2.new(1, -52, 0.5, -8), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Text = curKey and curKey.Name or "None", TextColor3 = Settings.SubText, TextSize = 8, Font = Enum.Font.GothamBold, AutoButtonColor = false }, row)
+        Fn.Corner(keyBtn, 3)
+        Fn.Stroke(keyBtn, Settings.Border, 0.35)
+
+        local listening = false
+        keyBtn.MouseButton1Click:Connect(function()
+            Fn.PlayUISound()
+            listening = true
+            keyBtn.Text = "..."
+            keyBtn.TextColor3 = Settings.AccentBright
+        end)
+
+        UserInputService.InputBegan:Connect(function(input)
+            if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+                local k = (input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Escape) and nil or input.KeyCode
+                bindKeySetter(k)
+                keyBtn.Text = k and k.Name or "None"
+                keyBtn.TextColor3 = Settings.SubText
+                listening = false
+            end
+        end)
+    end
+    return row
+end
+
+function Fn.AddSlider(parent, name, min, max, defaultVal, suffix, callback)
+    local holder = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1 }, parent)
+    local lbl = Fn.Label(holder, name, 10, Settings.SubText, Enum.Font.GothamMedium)
+    lbl.Size = UDim2.new(0.65, 0, 0, 14)
+
+    local clampedInit = math.clamp(defaultVal, min, max)
+    local valLbl = Fn.Label(holder, tostring(clampedInit) .. suffix, 10, Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+    valLbl.Position = UDim2.new(0.65, 0, 0, 0)
+    valLbl.Size = UDim2.new(0.35, 0, 0, 14)
+
+    local track = Fn.Create("TextButton", { Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, 18), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, holder)
+    Fn.Corner(track, 999)
+    Fn.Stroke(track, Settings.Border, 0.5)
+
+    local pct = math.clamp((clampedInit - min) / math.max(1, max - min), 0, 1)
+    local fill = Fn.Create("Frame", { Size = UDim2.new(pct, 0, 1, 0), BackgroundColor3 = Settings.Accent, BorderSizePixel = 0 }, track)
+    Fn.Corner(fill, 999)
+
+    local dragging = false
+    local function update(input)
+        local pos = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        local val = math.floor(min + (max - min) * pos + 0.5)
+        fill.Size = UDim2.new(pos, 0, 1, 0)
+        valLbl.Text = tostring(val) .. suffix
+        if callback then callback(val) end
+    end
+
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update(input) end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end
+    end)
+    return holder
+end
+
+function Fn.AddColorPicker(parent, labelText, initialColor, onColorChange)
+    local holder = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, ClipsDescendants = true }, parent)
+    local lbl = Fn.Label(holder, labelText, 10, Settings.SubText, Enum.Font.GothamMedium)
+    lbl.Size = UDim2.new(1, -48, 0, 20)
+
+    local swatchBtn = Fn.Create("TextButton", { Size = UDim2.fromOffset(38, 15), Position = UDim2.new(1, -38, 0, 2), BackgroundColor3 = initialColor, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, holder)
+    Fn.Corner(swatchBtn, 4)
+    Fn.Stroke(swatchBtn, Color3.new(1, 1, 1), 0.55)
+
+    local drawer = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 106), Position = UDim2.fromOffset(0, 24), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Visible = false }, holder)
+    Fn.Corner(drawer, 4)
+    Fn.Stroke(drawer, Settings.Border, 0.35)
+
+    local curR = math.floor(initialColor.R * 255 + 0.5)
+    local curG = math.floor(initialColor.G * 255 + 0.5)
+    local curB = math.floor(initialColor.B * 255 + 0.5)
+
+    local rgbUpdaters = {}
+    local function commitColor(c)
+        curR = math.floor(c.R * 255 + 0.5)
+        curG = math.floor(c.G * 255 + 0.5)
+        curB = math.floor(c.B * 255 + 0.5)
+        swatchBtn.BackgroundColor3 = c
+        for _, fn in ipairs(rgbUpdaters) do fn() end
+        if onColorChange then onColorChange(c) end
+    end
+
+    local presetRow = Fn.Create("Frame", { Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 6), BackgroundTransparency = 1 }, drawer)
+    Fn.Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, presetRow)
+
+    for _, pCol in ipairs(AssetsCfg.SWATCH_PALETTE) do
+        local pBtn = Fn.Create("TextButton", { Size = UDim2.fromOffset(22, 14), BackgroundColor3 = pCol, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, presetRow)
+        Fn.Corner(pBtn, 3)
+        pBtn.MouseButton1Click:Connect(function() Fn.PlayUISound(); commitColor(pCol) end)
+    end
+
+    local function makeChannelBar(channelName, yPos, barCol, getVal, setVal)
+        local cLbl = Fn.Label(drawer, channelName, 9, Settings.SubText, Enum.Font.GothamBold)
+        cLbl.Position = UDim2.fromOffset(8, yPos); cLbl.Size = UDim2.fromOffset(14, 14)
+
+        local vLbl = Fn.Label(drawer, tostring(getVal()), 9, Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+        vLbl.Position = UDim2.new(1, -32, 0, yPos); vLbl.Size = UDim2.fromOffset(24, 14)
+
+        local track = Fn.Create("TextButton", { Size = UDim2.new(1, -60, 0, 5), Position = UDim2.fromOffset(24, yPos + 5), BackgroundColor3 = Settings.BgMain, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, drawer)
+        Fn.Corner(track, 999)
+
+        local fill = Fn.Create("Frame", { Size = UDim2.new(getVal() / 255, 0, 1, 0), BackgroundColor3 = barCol, BorderSizePixel = 0 }, track)
+        Fn.Corner(fill, 999)
+
+        table.insert(rgbUpdaters, function()
+            local v = getVal()
+            fill.Size = UDim2.new(v / 255, 0, 1, 0)
+            vLbl.Text = tostring(v)
+        end)
+
+        local drag = false
+        local function upd(input)
+            local pos = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+            setVal(math.floor(pos * 255 + 0.5))
+            commitColor(Color3.fromRGB(curR, curG, curB))
+        end
+
+        track.InputBegan:Connect(function(inp) if inp.UserInputType == Enum.UserInputType.MouseButton1 then drag = true; upd(inp) end end)
+        UserInputService.InputEnded:Connect(function(inp) if inp.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end end)
+        UserInputService.InputChanged:Connect(function(inp) if drag and inp.UserInputType == Enum.UserInputType.MouseMovement then upd(inp) end end)
+    end
+
+    makeChannelBar("R", 28, Color3.fromRGB(235, 75, 95), function() return curR end, function(v) curR = v end)
+    makeChannelBar("G", 52, Color3.fromRGB(78, 218, 140), function() return curG end, function(v) curG = v end)
+    makeChannelBar("B", 76, Color3.fromRGB(70, 165, 255), function() return curB end, function(v) curB = v end)
+
+    local open = false
+    swatchBtn.MouseButton1Click:Connect(function()
+        Fn.PlayUISound()
+        open = not open
+        drawer.Visible = open
+        holder.Size = UDim2.new(1, 0, 0, open and 134 or 20)
+    end)
+    return holder
+end
+
+function Fn.AddDropdown(parent, title, optionsGetter, currentText, onSelect)
+    local holder = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, ZIndex = 20 }, parent)
+    local lbl = Fn.Label(holder, title, 9, Settings.SubText, Enum.Font.GothamMedium)
+    lbl.Size = UDim2.new(1, 0, 0, 14)
+
+    local btn = Fn.Create("TextButton", { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 21 }, holder)
+    Fn.Corner(btn, 4)
+    Fn.Stroke(btn, Settings.Border, 0.3)
+
+    local selectedLbl = Fn.Label(btn, currentText, 10, Settings.Text)
+    selectedLbl.Position = UDim2.fromOffset(8, 0); selectedLbl.Size = UDim2.new(1, -24, 1, 0); selectedLbl.ZIndex = 22
+
+    local arrow = Fn.Label(btn, "v", 9, Settings.SubText, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+    arrow.Position = UDim2.new(1, -18, 0, 0); arrow.Size = UDim2.fromOffset(16, 22); arrow.ZIndex = 22
+
+    local listFrame = Fn.Create("ScrollingFrame", { Size = UDim2.new(1, 0, 0, 95), Position = UDim2.fromOffset(0, 40), BackgroundColor3 = Settings.BgMain, BorderSizePixel = 0, Visible = false, ZIndex = 60, CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 2, ScrollBarImageColor3 = Settings.Accent }, holder)
+    Fn.Corner(listFrame, 4)
+    Fn.Stroke(listFrame, Settings.BorderAccent, 0.3)
+
+    local listLayout = Fn.Create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        listFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+    end)
+
+    local open = false
+    local function populate()
+        for _, c in ipairs(listFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _, item in ipairs(optionsGetter()) do
+            local opt = Fn.Create("TextButton", { Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, Text = "  " .. item.label, TextColor3 = item.active and Settings.Green or Settings.Text, TextSize = 10, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 61 }, listFrame)
+            opt.MouseButton1Click:Connect(function()
+                Fn.PlayUISound()
+                local newDisplay, closeMenu = onSelect(item.value)
+                if newDisplay then selectedLbl.Text = newDisplay end
+                if closeMenu then
+                    open = false
+                    listFrame.Visible = false
+                    holder.Size = UDim2.new(1, 0, 0, 38)
+                else
+                    populate()
+                end
+            end)
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        Fn.PlayUISound()
+        open = not open
+        if open then
+            populate()
+            listFrame.Visible = true
+            holder.Size = UDim2.new(1, 0, 0, 138)
+        else
+            listFrame.Visible = false
+            holder.Size = UDim2.new(1, 0, 0, 38)
+        end
+    end)
+    return holder, selectedLbl
+end
+
+function Fn.AddTextBox(parent, title, placeholder, defaultText, onChanged)
+    local holder = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1 }, parent)
+    local lbl = Fn.Label(holder, title, 9, Settings.SubText)
+    lbl.Size = UDim2.new(1, 0, 0, 14)
+
+    local box = Fn.Create("TextBox", { Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Text = defaultText or "", PlaceholderText = placeholder or "", PlaceholderColor3 = Settings.SubText, TextColor3 = Settings.Text, TextSize = 10, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false }, holder)
+    Fn.Corner(box, 4)
+    Fn.Stroke(box, Settings.Border, 0.3)
+    Fn.Create("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, box)
+
+    box:GetPropertyChangedSignal("Text"):Connect(function() if onChanged then onChanged(box.Text) end end)
+    return box
+end
+
+function Fn.AddButton(parent, text, isDanger, callback)
+    local btn = Fn.Create("TextButton", { Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = isDanger and Color3.fromRGB(45, 18, 26) or Settings.BgControl, BorderSizePixel = 0, Text = text, TextColor3 = isDanger and Settings.Red or Settings.Text, TextSize = 10, Font = Enum.Font.GothamBold, AutoButtonColor = false }, parent)
+    Fn.Corner(btn, 4)
+    Fn.Stroke(btn, isDanger and Settings.Red or Settings.Border, 0.35)
+
+    btn.MouseEnter:Connect(function() Fn.Tween(btn, UI.FastTween, { BackgroundColor3 = isDanger and Color3.fromRGB(65, 22, 34) or Settings.BgHover }) end)
+    btn.MouseLeave:Connect(function() Fn.Tween(btn, UI.FastTween, { BackgroundColor3 = isDanger and Color3.fromRGB(45, 18, 26) or Settings.BgControl }) end)
+    btn.MouseButton1Click:Connect(function() Fn.PlayUISound(); if callback then callback() end end)
+    return btn
+end
+
+function Fn.AddKeybindRow(parent, labelText, currentKey, onSet)
+    local row = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1 }, parent)
+    local lbl = Fn.Label(row, labelText, 10, Settings.SubText)
+    lbl.Size = UDim2.new(0.65, 0, 1, 0)
+
+    local keyBtn = Fn.Create("TextButton", { Size = UDim2.fromOffset(68, 18), Position = UDim2.new(1, -68, 0.5, -9), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, Text = currentKey and currentKey.Name or "None", TextColor3 = Settings.AccentBright, TextSize = 9, Font = Enum.Font.GothamBold, AutoButtonColor = false }, row)
+    Fn.Corner(keyBtn, 4)
+    Fn.Stroke(keyBtn, Settings.Border, 0.3)
+
+    local listening = false
+    keyBtn.MouseButton1Click:Connect(function()
+        Fn.PlayUISound()
+        listening = true
+        keyBtn.Text = "Press..."
+        keyBtn.TextColor3 = Settings.Green
+    end)
+
+    UserInputService.InputBegan:Connect(function(input)
+        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+            local k = (input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Escape) and nil or input.KeyCode
+            keyBtn.Text = k and k.Name or "None"
+            keyBtn.TextColor3 = Settings.AccentBright
+            listening = false
+            if onSet then onSet(k) end
+        end
+    end)
+end
+
+function Fn.AddInfoRow(parent, keyTxt, valTxt, idKey, valColor)
+    local row = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1 }, parent)
+    local kLbl = Fn.Label(row, keyTxt, 10, Settings.SubText, Enum.Font.GothamMedium)
+    kLbl.Size = UDim2.new(0.55, 0, 1, 0)
+
+    local vLbl = Fn.Label(row, valTxt, 10, valColor or Settings.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+    vLbl.Position = UDim2.new(0.55, 0, 0, 0)
+    vLbl.Size = UDim2.new(0.45, 0, 1, 0)
+
+    if idKey then
+        State.StatsLabelUpdaters[idKey] = function()
+            local s = State.SessionStats
+            if idKey == "CombatKills" then vLbl.Text = tostring(s.Kills)
+            elseif idKey == "CombatDeaths" then vLbl.Text = tostring(s.Deaths)
+            elseif idKey == "CombatKD" then vLbl.Text = string.format("%.2f", s.Kills / math.max(1, s.Deaths))
+            elseif idKey == "CombatDMG" then vLbl.Text = tostring(s.DamageDealt)
+            elseif idKey == "MoveSpeed" then vLbl.Text = string.format("%.1f studs/s", s.CurrentSpeed)
+            elseif idKey == "MoveJumps" then vLbl.Text = tostring(s.Jumps)
+            elseif idKey == "MoveDist" then vLbl.Text = string.format("%.0f studs", s.DistanceStuds)
+            elseif idKey == "MoveTime" then
+                vLbl.Text = string.format("%02d:%02d", math.floor(s.MovementTime / 60), math.floor(s.MovementTime % 60))
+            elseif idKey == "AdminCount" then
+                local cnt = Fn.CountDetectedAdmins()
+                vLbl.Text = cnt > 0 and (cnt .. " Detected") or "0 (Clear)"
+                vLbl.TextColor3 = cnt > 0 and Settings.Red or Settings.Green
+            end
+        end
+    end
+    return vLbl
+end
+
+--============================================================
+-- 7. TAB RENDERERS (7 TABS — SPLIT TO KEEP <45 REGISTERS)
+--============================================================
+
+function Fn.RenderCombat()
+    Fn.ClearColumns()
+    local silentCard = Fn.CreateGroupCard(UI.LeftCol, "Silent Aim", {"Main", "Overlays"}, State.SubTabStates.CombatLeft, function(st)
+        State.SubTabStates.CombatLeft = st; Fn.RenderCombat()
+    end)
+
+    if State.SubTabStates.CombatLeft == "Main" then
+        Fn.AddCheckbox(silentCard, "Enabled", Settings.Enabled, function(v) Settings.Enabled = v; Fn.Notify("KoSMO Hub", "Silent Aim " .. (v and "Enabled" or "Disabled")) end, function() return Settings.SilentKey end, function(k) Settings.SilentKey = k end)
+        Fn.AddCheckbox(silentCard, "Wall Check", Settings.WallCheck, function(v) Settings.WallCheck = v end)
+        Fn.AddCheckbox(silentCard, "Custom Part (Closest)", Settings.CustomPart, function(v) Settings.CustomPart = v end, function() return Settings.CustomPartKey end, function(k) Settings.CustomPartKey = k end)
+        Fn.AddCheckbox(silentCard, "Dynamic FOV Scaling", Settings.DynamicFOV, function(v) Settings.DynamicFOV = v end)
+        Fn.AddSlider(silentCard, "Hit Chance", 1, 100, Settings.HitProbability, "%", function(v) Settings.HitProbability = v end)
+        Fn.AddSlider(silentCard, "FOV Radius", 10, 1500, Settings.BaseFOV, " px", function(v) Settings.BaseFOV = v end)
+    else
+        Fn.AddCheckbox(silentCard, "Show FOV Circle", Settings.ShowFOV, function(v) Settings.ShowFOV = v end)
+        Fn.AddCheckbox(silentCard, "Show Target Dot", Settings.ShowDot, function(v) Settings.ShowDot = v end)
+        Fn.AddCheckbox(silentCard, "Rainbow FOV", Settings.RainbowFOV, function(v) Settings.RainbowFOV = v end)
+        Fn.AddColorPicker(silentCard, "Silent FOV Color", Settings.FOVColor, function(c) Settings.FOVColor = c end)
+        Fn.AddColorPicker(silentCard, "Target Dot Color", Settings.TargetColor, function(c) Settings.TargetColor = c end)
+    end
+
+    local rageCard = Fn.CreateGroupCard(UI.LeftCol, "Rage Mode (Aimbot Synced)")
+    Fn.AddCheckbox(rageCard, "Enable Rage Mode", Settings.RageMode, function(v)
+        Settings.RageMode = v
+        if not v then State.CurrentRageTarget = nil end
+        Fn.Notify("Rage Mode", v and "Synced with Aimbot target" or "Disabled")
+    end, function() return Settings.RageKey end, function(k) Settings.RageKey = k end)
+
+    Fn.AddDropdown(rageCard, "Fallback Target Mode", function()
+        return {
+            { label = "Aimbot Locked (Priority)", value = "Aimbot Locked", active = (Settings.RageTargetMode == "Aimbot Locked") },
+            { label = "Closest Distance", value = "Closest Distance", active = (Settings.RageTargetMode == "Closest Distance") },
+            { label = "Closest to Cursor", value = "Closest Cursor", active = (Settings.RageTargetMode == "Closest Cursor") }
+        }
+    end, Settings.RageTargetMode, function(val) Settings.RageTargetMode = val; State.CurrentRageTarget = nil; return val, true end)
+
+    Fn.AddSlider(rageCard, "Height Above Target", 3, 20, Settings.RageHeight, " studs", function(v) Settings.RageHeight = v end)
+    Fn.AddButton(rageCard, "Switch Rage Target", false, function()
+        local old = State.CurrentRageTarget
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= old and Fn.IsValidRageTarget(p) then
+                State.CurrentRageTarget = p
+                if Settings.RageTargetMode == "Aimbot Locked" then State.CurrentAimbotTargetPlayer = p end
+                Fn.Notify("Rage Mode", "Switched to " .. p.DisplayName)
+                break
+            end
+        end
+    end)
+
+    local abCard = Fn.CreateGroupCard(UI.RightCol, "Aimbot", {"Main", "Overlays"}, State.SubTabStates.CombatRight, function(st)
+        State.SubTabStates.CombatRight = st; Fn.RenderCombat()
+    end)
+
+    if State.SubTabStates.CombatRight == "Main" then
+        Fn.AddCheckbox(abCard, "Aimbot Enabled", Settings.AimbotEnabled, function(v)
+            Settings.AimbotEnabled = v
+            if not v then State.CurrentAimbotTargetPlayer = nil end
+            Fn.Notify("KoSMO Hub", "Aimbot " .. (v and "Enabled" or "Disabled"))
+        end, function() return Settings.AimbotKey end, function(k) Settings.AimbotKey = k end)
+
+        Fn.AddDropdown(abCard, "Aimbot Mode", function()
+            return {
+                { label = "Cursor (Mouse)", value = "Cursor", active = (Settings.AimbotMode == "Cursor") },
+                { label = "Memory (Camera)", value = "Memory", active = (Settings.AimbotMode == "Memory") }
+            }
+        end, Settings.AimbotMode == "Memory" and "Memory (Camera)" or "Cursor (Mouse)", function(val)
+            Settings.AimbotMode = val
+            return val == "Memory" and "Memory (Camera)" or "Cursor (Mouse)", true
+        end)
+
+        Fn.AddCheckbox(abCard, "Aimbot Wall Check", Settings.AimbotWallCheck, function(v) Settings.AimbotWallCheck = v end, function() return Settings.AimbotWallCheckKey end, function(k) Settings.AimbotWallCheckKey = k end)
+        Fn.AddCheckbox(abCard, "Aimbot Custom Part", Settings.AimbotCustomPart, function(v) Settings.AimbotCustomPart = v end, function() return Settings.AimbotCustomPartKey end, function(k) Settings.AimbotCustomPartKey = k end)
+        Fn.AddSlider(abCard, "Smoothness", 1, 100, math.floor(Settings.AimbotSmoothness * 100), "%", function(v) Settings.AimbotSmoothness = v / 100 end)
+        Fn.AddSlider(abCard, "Aimbot FOV", 10, 1500, Settings.AimbotFOV, " px", function(v) Settings.AimbotFOV = v end)
+    else
+        Fn.AddCheckbox(abCard, "Show Aimbot FOV", Settings.AimbotShowFOV, function(v) Settings.AimbotShowFOV = v end)
+        Fn.AddCheckbox(abCard, "Rainbow Aimbot FOV", Settings.AimbotRainbowFOV, function(v) Settings.AimbotRainbowFOV = v end)
+        Fn.AddColorPicker(abCard, "Aimbot FOV Color", Settings.AimbotFOVColor, function(c) Settings.AimbotFOVColor = c end)
+    end
+
+    local statsCard = Fn.CreateGroupCard(UI.RightCol, "Combat Feedback & Stats")
+    Fn.AddCheckbox(statsCard, "Visual Hitmarker", Settings.HitmarkerEnabled, function(v) Settings.HitmarkerEnabled = v end)
+    Fn.AddCheckbox(statsCard, "Hit Sound Feedback", Settings.HitSoundEnabled, function(v) Settings.HitSoundEnabled = v end)
+    Fn.AddCheckbox(statsCard, "Combat Stats HUD", Settings.ShowCombatStatsHUD, function(v) Settings.ShowCombatStatsHUD = v end)
+    Fn.AddInfoRow(statsCard, "Kill Counter", tostring(State.SessionStats.Kills), "CombatKills")
+    Fn.AddInfoRow(statsCard, "Deaths", tostring(State.SessionStats.Deaths), "CombatDeaths")
+    Fn.AddInfoRow(statsCard, "Session K/D", string.format("%.2f", State.SessionStats.Kills / math.max(1, State.SessionStats.Deaths)), "CombatKD")
+    Fn.AddInfoRow(statsCard, "Damage Counter", tostring(State.SessionStats.DamageDealt), "CombatDMG")
+    Fn.AddButton(statsCard, "Reset Combat Stats", false, function()
+        State.SessionStats.Kills = 0; State.SessionStats.Deaths = 0; State.SessionStats.DamageDealt = 0
+        Fn.Notify("Combat Stats", "Session stats reset")
+    end)
+end
+
+function Fn.RenderVisualsLeft()
+    local espCard = Fn.CreateGroupCard(UI.LeftCol, "Player ESP (Professional)")
+    Fn.AddCheckbox(espCard, "Enable ESP", Settings.ESPEnabled, function(v) Settings.ESPEnabled = v; Fn.Notify("KoSMO Hub", "ESP " .. (v and "Enabled" or "Disabled")) end, function() return Settings.ESPKey end, function(k) Settings.ESPKey = k end)
+    Fn.AddCheckbox(espCard, "Bounding Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
+    Fn.AddDropdown(espCard, "Box Style", function()
+        return {
+            { label = "Corner Brackets", value = "Corner", active = (Settings.ESPBoxStyle == "Corner") },
+            { label = "Full Box", value = "Full", active = (Settings.ESPBoxStyle == "Full") }
+        }
+    end, Settings.ESPBoxStyle == "Corner" and "Corner Brackets" or "Full Box", function(val) Settings.ESPBoxStyle = val; return val == "Corner" and "Corner Brackets" or "Full Box", true end)
+
+    Fn.AddCheckbox(espCard, "Skeleton ESP (R15 & R6)", Settings.ESPSkeleton, function(v) Settings.ESPSkeleton = v end)
+    Fn.AddCheckbox(espCard, "Player Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
+    Fn.AddCheckbox(espCard, "Distance Tag (Name(999m))", Settings.ESPDistance, function(v) Settings.ESPDistance = v end)
+    Fn.AddCheckbox(espCard, "Held Weapon Tag", Settings.ESPWeapon, function(v) Settings.ESPWeapon = v end)
+    Fn.AddCheckbox(espCard, "Health Bar", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
+    Fn.AddCheckbox(espCard, "Head Dot", Settings.ESPHeadDot, function(v) Settings.ESPHeadDot = v end)
+    Fn.AddCheckbox(espCard, "Snaplines / Tracers", Settings.ESPTracers, function(v) Settings.ESPTracers = v end)
+    Fn.AddDropdown(espCard, "Snaplines Origin", function()
+        local out = {}
+        for _, orig in ipairs({"Bottom", "Center", "Top", "Mouse"}) do
+            table.insert(out, { label = orig, value = orig, active = (Settings.ESPTracerOrigin == orig) })
+        end
+        return out
+    end, Settings.ESPTracerOrigin, function(val) Settings.ESPTracerOrigin = val; return val, true end)
+    Fn.AddCheckbox(espCard, "Snaplines: Only Target", Settings.ESPTracerOnlyTarget, function(v) Settings.ESPTracerOnlyTarget = v end)
+    Fn.AddCheckbox(espCard, "Chams (Highlight)", Settings.ESPChams, function(v) Settings.ESPChams = v end)
+    Fn.AddCheckbox(espCard, "Team Check (Hide Allies)", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
+    Fn.AddCheckbox(espCard, "Whitelist Check (Hide WL)", Settings.ESPWhitelistCheck, function(v) Settings.ESPWhitelistCheck = v end)
+    Fn.AddSlider(espCard, "Max ESP Distance", 100, 3000, Settings.ESPMaxDistance, "m", function(v) Settings.ESPMaxDistance = v end)
+
+    local espColorsCard = Fn.CreateGroupCard(UI.LeftCol, "ESP Color Customization")
+    Fn.AddColorPicker(espColorsCard, "Box & Head Dot Color", Settings.ESPColor, function(c) Settings.ESPColor = c end)
+    Fn.AddColorPicker(espColorsCard, "Skeleton Color", Settings.ESPSkeletonColor, function(c) Settings.ESPSkeletonColor = c end)
+    Fn.AddColorPicker(espColorsCard, "Name & Distance Color", Settings.ESPNameColor, function(c) Settings.ESPNameColor = c end)
+    Fn.AddColorPicker(espColorsCard, "Tracer Line Color", Settings.TracerColor, function(c) Settings.TracerColor = c end)
+    Fn.AddColorPicker(espColorsCard, "Chams Fill Color", Settings.ChamColor, function(c) Settings.ChamColor = c end)
+    Fn.AddColorPicker(espColorsCard, "Chams Outline Color", Settings.ChamOutlineColor, function(c) Settings.ChamOutlineColor = c end)
+end
+
+function Fn.RenderVisualsRight()
+    local skinsCard = Fn.CreateGroupCard(UI.RightCol, "Custom Sky, Skins & Raw Photo Links")
+    Fn.AddCheckbox(skinsCard, "Custom Skybox", Settings.CustomSkybox, function(v)
+        Settings.CustomSkybox = v
+        if v then Fn.TriggerCustomAssetLoading("Custom Skybox") else task.spawn(Fn.RefreshAllVisualAssets) end
+    end)
+    Fn.AddTextBox(skinsCard, "Skybox Raw Link or Roblox ID", "https://raw.githubusercontent.com/... or ID", Settings.CustomSkyboxRobloxID, function(txt)
+        Settings.CustomSkyboxRobloxID = txt
+    end)
+
+    Fn.AddCheckbox(skinsCard, "AR-15 Custom Skin", Settings.CustomAR15Skin, function(v)
+        Settings.CustomAR15Skin = v
+        if v then Fn.TriggerCustomAssetLoading("AR-15 Skin") else task.spawn(Fn.RefreshAllVisualAssets) end
+    end)
+    Fn.AddTextBox(skinsCard, "AR-15 Raw Photo Link or Roblox ID", "https://raw.githubusercontent.com/... or ID", Settings.CustomAR15RobloxID, function(txt)
+        Settings.CustomAR15RobloxID = txt
+    end)
+
+    Fn.AddCheckbox(skinsCard, "SMG / Sub Custom Skin", Settings.CustomSMGSkin, function(v)
+        Settings.CustomSMGSkin = v
+        if v then Fn.TriggerCustomAssetLoading("SMG Skin") else task.spawn(Fn.RefreshAllVisualAssets) end
+    end)
+    Fn.AddTextBox(skinsCard, "SMG Raw Photo Link or Roblox ID", "https://raw.githubusercontent.com/... or ID", Settings.CustomSMGRobloxID, function(txt)
+        Settings.CustomSMGRobloxID = txt
+    end)
+
+    Fn.AddCheckbox(skinsCard, "Blue Sparks Texture", Settings.CustomSparksTexture, function(v)
+        Settings.CustomSparksTexture = v
+        if v then Fn.TriggerCustomAssetLoading("Sparks Texture") else task.spawn(Fn.RefreshAllVisualAssets) end
+    end)
+    Fn.AddTextBox(skinsCard, "Sparks Raw Photo Link or Roblox ID", "https://raw.githubusercontent.com/... or ID", Settings.CustomSparksRobloxID, function(txt)
+        Settings.CustomSparksRobloxID = txt
+    end)
+
+    Fn.AddButton(skinsCard, "Apply / Reload Custom Skins & Skybox", false, function()
+        Fn.TriggerCustomAssetLoading("Custom Assets")
+    end)
+
+    local chCard = Fn.CreateGroupCard(UI.RightCol, "Crosshair Customization")
+    Fn.AddCheckbox(chCard, "Custom Crosshair", Settings.CrosshairEnabled, function(v) Settings.CrosshairEnabled = v; Fn.UpdateCrosshairStyle() end)
+    Fn.AddCheckbox(chCard, "Follow Mouse Cursor", Settings.CrosshairFollowMouse, function(v) Settings.CrosshairFollowMouse = v end)
+    Fn.AddSlider(chCard, "Crosshair Size", 4, 30, Settings.CrosshairSize, " px", function(v) Settings.CrosshairSize = v; Fn.UpdateCrosshairStyle() end)
+    Fn.AddSlider(chCard, "Crosshair Opacity", 10, 100, Settings.CrosshairOpacity, "%", function(v) Settings.CrosshairOpacity = v; Fn.UpdateCrosshairStyle() end)
+    Fn.AddDropdown(chCard, "Crosshair Color", function()
+        local out = {}
+        for _, c in ipairs({"Theme Accent", "White", "Green", "Red", "Cyan"}) do
+            table.insert(out, { label = c, value = c, active = (Settings.CrosshairColorName == c) })
+        end
+        return out
+    end, Settings.CrosshairColorName, function(val) Settings.CrosshairColorName = val; Fn.UpdateCrosshairStyle(); return val, true end)
+
+    local hudCard = Fn.CreateGroupCard(UI.RightCol, "World FX & Overlays")
+    Fn.AddCheckbox(hudCard, "Saturation Effect", Settings.HighSaturation, function(v) Settings.HighSaturation = v; Fn.ApplyHighSaturation(v) end)
+    Fn.AddSlider(hudCard, "Saturation Intensity", 0, 200, Settings.SaturationAmount, "%", function(v)
+        Settings.SaturationAmount = v
+        if Settings.HighSaturation then Fn.ApplyHighSaturation(true) end
+    end)
+    Fn.AddCheckbox(hudCard, "Fullbright", Settings.Fullbright, function(v) Settings.Fullbright = v; Fn.ApplyFullbright(v) end)
+    Fn.AddCheckbox(hudCard, "Performance Overlay (Draggable)", Settings.PerformanceOverlay, function(v) Settings.PerformanceOverlay = v end)
+    Fn.AddCheckbox(hudCard, "FOV Display", Settings.ShowFOVDisplay, function(v) Settings.ShowFOVDisplay = v end)
+    Fn.AddSlider(hudCard, "UI Transparency", 0, 65, Settings.UITransparency, "%", function(v) Settings.UITransparency = v; Fn.ApplyUITransparency() end)
+end
+
+function Fn.RenderVisuals()
+    Fn.ClearColumns()
+    Fn.RenderVisualsLeft()
+    Fn.RenderVisualsRight()
+end
+
+function Fn.RenderPlayers()
+    Fn.ClearColumns()
+    local allPlrs = Players:GetPlayers()
+    if not State.SelectedPlayerObj or not State.SelectedPlayerObj.Parent then
+        for _, p in ipairs(allPlrs) do
+            if p ~= LocalPlayer then State.SelectedPlayerObj = p; break end
+        end
+        if not State.SelectedPlayerObj then State.SelectedPlayerObj = LocalPlayer end
+    end
+
+    local listCard = Fn.CreateGroupCard(UI.LeftCol, string.format("Server Players (%d / %d)", #allPlrs, Players.MaxPlayers))
+    local listHolder = Fn.Create("ScrollingFrame", { Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0, CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 2, ScrollBarImageColor3 = Settings.Accent, LayoutOrder = 2 }, listCard)
+    Fn.Corner(listHolder, 4)
+    Fn.Stroke(listHolder, Settings.Border, 0.3)
+
+    local lLayout = Fn.Create("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listHolder)
+    Fn.Create("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, listHolder)
+    lLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        listHolder.CanvasSize = UDim2.new(0, 0, 0, lLayout.AbsoluteContentSize.Y + 8)
+    end)
+
+    local function rebuildPlayerRows()
+        for _, c in ipairs(listHolder:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        local q = State.PlayerSearchQuery:lower()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if q == "" or plr.Name:lower():find(q, 1, true) or plr.DisplayName:lower():find(q, 1, true) then
+                local isSel = (State.SelectedPlayerObj == plr)
+                local isStaff = State.DetectedAdmins[plr] ~= nil
+                local rowBtn = Fn.Create("TextButton", { Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = isStaff and Color3.fromRGB(58, 20, 30) or (isSel and Settings.Accent or Settings.BgCard), BackgroundTransparency = isStaff and 0.35 or (isSel and 0.65 or 0.2), BorderSizePixel = 0, Text = "", AutoButtonColor = false }, listHolder)
+                Fn.Corner(rowBtn, 4)
+
+                local tag = isStaff and " [ADMIN]" or ((plr == LocalPlayer) and " [You]" or (Settings.Whitelist[plr.Name] and " [WL]" or ""))
+                local txtCol = isStaff and Settings.Red or (isSel and Settings.Text or Settings.SubText)
+                local nameTxt = Fn.Label(rowBtn, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tag, 9, txtCol, (isSel or isStaff) and Enum.Font.GothamBold or Enum.Font.GothamMedium)
+                nameTxt.Position = UDim2.fromOffset(8, 0); nameTxt.Size = UDim2.new(1, -16, 1, 0)
+
+                rowBtn.MouseButton1Click:Connect(function()
+                    Fn.PlayUISound(); State.SelectedPlayerObj = plr; Fn.RenderPlayers()
+                end)
+            end
+        end
+    end
+
+    local searchBox = Fn.AddTextBox(listCard, "Search Player by Username", "Type username...", State.PlayerSearchQuery, function(txt)
+        State.PlayerSearchQuery = txt; rebuildPlayerRows()
+    end)
+    searchBox.Parent.LayoutOrder = 1
+    rebuildPlayerRows()
+
+    local adminCard = Fn.CreateGroupCard(UI.LeftCol, "Adonis Admin & Whitelist Protection")
+    local staffCount = Fn.CountDetectedAdmins()
+    Fn.AddInfoRow(adminCard, "Staff in Server", staffCount > 0 and (staffCount .. " Detected") or "0 (Clear)", "AdminCount", staffCount > 0 and Settings.Red or Settings.Green)
+    Fn.AddCheckbox(adminCard, "Ignore Whitelisted in Combat", Settings.WhitelistCombatCheck, function(v) Settings.WhitelistCombatCheck = v end)
+    Fn.AddCheckbox(adminCard, "Enable Adonis Detector", Settings.AdminDetector, function(v)
+        Settings.AdminDetector = v
+        if v then Fn.ScanAllPlayersForAdmin(true) else table.clear(State.DetectedAdmins) end
+    end)
+    Fn.AddCheckbox(adminCard, "Alert Sound on Staff Join", Settings.AdminAlertSound, function(v) Settings.AdminAlertSound = v end)
+    Fn.AddCheckbox(adminCard, "Auto-Panic on Staff Join", Settings.AdminAutoPanic, function(v) Settings.AdminAutoPanic = v end)
+    Fn.AddCheckbox(adminCard, "Auto-Leave on Staff Join", Settings.AdminAutoLeave, function(v) Settings.AdminAutoLeave = v end)
+    Fn.AddSlider(adminCard, "Min Adonis Group Rank", 1, 255, Settings.AdminMinGroupRank, " rank", function(v) Settings.AdminMinGroupRank = v end)
+    Fn.AddButton(adminCard, "Scan Server Now", false, function()
+        Fn.ScanAllPlayersForAdmin(true)
+        task.delay(0.6, function() if State.ActiveTabName == "Players" then Fn.RenderPlayers() end end)
+    end)
+
+    local profCard = Fn.CreateGroupCard(UI.RightCol, "Player Profile")
+    local sel = State.SelectedPlayerObj
+    if sel then
+        local headerBox = Fn.Create("Frame", { Size = UDim2.new(1, 0, 0, 54), BackgroundColor3 = Settings.BgControl, BorderSizePixel = 0 }, profCard)
+        Fn.Corner(headerBox, 4)
+        Fn.Stroke(headerBox, State.DetectedAdmins[sel] and Settings.Red or Settings.Border, 0.3)
+
+        local avatar = Fn.Create("ImageLabel", { Size = UDim2.fromOffset(42, 42), Position = UDim2.fromOffset(6, 6), BackgroundColor3 = Settings.BgMain, BorderSizePixel = 0, Image = "" }, headerBox)
+        Fn.Corner(avatar, 6)
+        task.spawn(function()
+            local ok, img = pcall(function() return Players:GetUserThumbnailAsync(sel.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+            if ok and avatar and avatar.Parent then avatar.Image = img end
+        end)
+
+        local dName = Fn.Label(headerBox, sel.DisplayName, 11, Settings.Text, Enum.Font.GothamBold)
+        dName.Position = UDim2.fromOffset(56, 8); dName.Size = UDim2.new(1, -62, 0, 16)
+        local uName = Fn.Label(headerBox, "@" .. sel.Name, 9, Settings.AccentBright, Enum.Font.GothamMedium)
+        uName.Position = UDim2.fromOffset(56, 26); uName.Size = UDim2.new(1, -62, 0, 14)
+
+        local distStr, hpStr = "N/A", "N/A"
+        if sel.Character then
+            local r = sel.Character:FindFirstChild("HumanoidRootPart")
+            local h = sel.Character:FindFirstChildWhichIsA("Humanoid")
+            local lr = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if r and lr then distStr = math.floor((r.Position - lr.Position).Magnitude) .. " studs" end
+            if h then hpStr = string.format("%d / %d", math.floor(h.Health), math.floor(h.MaxHealth)) end
+        end
+
+        local adminInfo = State.DetectedAdmins[sel]
+        Fn.AddInfoRow(profCard, "Adonis Rank", adminInfo and (adminInfo.AdonisRank .. " - " .. adminInfo.RoleDetail) or "Players (0)", nil, adminInfo and Settings.Red or Settings.Green)
+        Fn.AddInfoRow(profCard, "Account Username", sel.Name)
+        Fn.AddInfoRow(profCard, "User ID", tostring(sel.UserId))
+        Fn.AddInfoRow(profCard, "Account Age", tostring(sel.AccountAge) .. " days")
+        Fn.AddInfoRow(profCard, "Team", sel.Team and sel.Team.Name or "Neutral")
+        Fn.AddInfoRow(profCard, "Health", hpStr)
+        Fn.AddInfoRow(profCard, "Distance", distStr)
+
+        Fn.AddButton(profCard, "Copy Username", false, function()
+            if typeof(setclipboard) == "function" then setclipboard(sel.Name); Fn.Notify("Players", "Copied: " .. sel.Name) end
+        end)
+
+        if sel ~= LocalPlayer then
+            Fn.AddButton(profCard, "Teleport to Player", false, function()
+                local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local tRoot = sel.Character and sel.Character:FindFirstChild("HumanoidRootPart")
+                if myRoot and tRoot then
+                    myRoot.CFrame = tRoot.CFrame * CFrame.new(0, 0, 3)
+                    myRoot.AssemblyLinearVelocity = Vector3.zero
+                    Fn.Notify("Teleport", "Teleported to " .. sel.DisplayName)
+                else
+                    Fn.Notify("Teleport", "Target character not found", true, true)
+                end
+            end)
+
+            local isWL = Settings.Whitelist[sel.Name] == true
+            Fn.AddButton(profCard, isWL and "Remove from Whitelist" or "Add to Whitelist", false, function()
+                Settings.Whitelist[sel.Name] = not isWL; Fn.RenderPlayers()
+            end)
+
+            local isSpec = (State.SpectatingPlayer == sel)
+            Fn.AddButton(profCard, isSpec and "Stop Spectating" or "Spectate Player", isSpec, function()
+                local cam = Fn.GetCamera()
+                if isSpec then
+                    State.SpectatingPlayer = nil
+                    local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+                    if cam and myHum then cam.CameraSubject = myHum end
+                else
+                    local targetHum = sel.Character and sel.Character:FindFirstChildWhichIsA("Humanoid")
+                    if cam and targetHum then State.SpectatingPlayer = sel; cam.CameraSubject = targetHum end
+                end
+                Fn.RenderPlayers()
+            end)
+        end
+    end
+end
+
+function Fn.RenderWeapon()
+    Fn.ClearColumns()
+    local modCard = Fn.CreateGroupCard(UI.LeftCol, "Fire Settings V2")
+    Fn.AddCheckbox(modCard, "Automatic Fire (AUTO)", Settings.WeaponAuto, function(v) Settings.WeaponAuto = v; Fn.ApplyToAllTools(); Fn.Notify("Weapon Mods", "Auto Fire " .. (v and "Enabled" or "Restored")) end)
+    Fn.AddCheckbox(modCard, "Rapid Fire (RAPID)", Settings.WeaponRapid, function(v) Settings.WeaponRapid = v; Fn.ApplyToAllTools(); Fn.Notify("Weapon Mods", "Rapid Fire " .. (v and "Enabled" or "Restored")) end)
+    Fn.AddCheckbox(modCard, "No Recoil", Settings.WeaponNoRecoil, function(v) Settings.WeaponNoRecoil = v; Fn.ApplyToAllTools(); Fn.Notify("Weapon Mods", "No Recoil " .. (v and "Enabled" or "Restored")) end)
+    Fn.AddSlider(modCard, "Rapid Fire Delay", 1, 15, math.floor(Settings.RapidFireRate * 100), " ms", function(v)
+        Settings.RapidFireRate = v / 100; if Settings.WeaponRapid then Fn.ApplyToAllTools() end
+    end)
+
+    local audioCard = Fn.CreateGroupCard(UI.LeftCol, "Audio Replacer Toggles")
+    Fn.AddCheckbox(audioCard, "Custom Gun & Impacts", Settings.CustomGunAudio, function(v) Settings.CustomGunAudio = v; Fn.RefreshAllSounds(); Fn.Notify("Audio", "Gun Audio " .. (v and "Enabled" or "Restored")) end)
+    Fn.AddCheckbox(audioCard, "Custom Headshot Sound", Settings.CustomHeadshotAudio, function(v) Settings.CustomHeadshotAudio = v; Fn.ApplyHeadshots(); Fn.Notify("Audio", "Headshot Audio " .. (v and "Enabled" or "Restored")) end)
+    Fn.AddCheckbox(audioCard, "Custom Skits Sound", Settings.CustomSkitsAudio, function(v) Settings.CustomSkitsAudio = v; Fn.RefreshAllSounds(); Fn.Notify("Audio", "Skits Audio " .. (v and "Enabled" or "Restored")) end)
+
+    local libCard = Fn.CreateGroupCard(UI.RightCol, "Custom Roblox Sound IDs (Persistent)")
+    Fn.AddTextBox(libCard, "Sound Name", "e.g. Heavy Sniper", State.SoundInputName, function(txt) State.SoundInputName = txt end)
+    Fn.AddTextBox(libCard, "Roblox Sound ID (rbxassetid://...)", "rbxassetid://132078503796732", State.SoundInputID, function(txt) State.SoundInputID = txt end)
+
+    local curSnd = State.SavedSounds[State.SelectedSavedSoundIdx]
+    local curLbl = curSnd and (curSnd.Name .. " (" .. (Fn.GetAssetId(curSnd.Id) or curSnd.Id) .. ")") or "Select Saved Sound..."
+    local _, soundDropLbl = Fn.AddDropdown(libCard, "Saved Sound IDs", function()
+        local list = {}
+        for idx, item in ipairs(State.SavedSounds) do
+            table.insert(list, {
+                label = item.Name .. " [" .. (Fn.GetAssetId(item.Id) or item.Id) .. "]",
+                value = idx,
+                active = (idx == State.SelectedSavedSoundIdx)
+            })
+        end
+        return list
+    end, curLbl, function(idx)
+        State.SelectedSavedSoundIdx = idx
+        local chosen = State.SavedSounds[idx]
+        return chosen and (chosen.Name .. " (" .. (Fn.GetAssetId(chosen.Id) or chosen.Id) .. ")") or "Select Saved Sound...", true
+    end)
+
+    Fn.AddButton(libCard, "Save Roblox Sound ID", false, function()
+        local normId = Fn.NormalizeRobloxId(State.SoundInputID)
+        if not normId then Fn.Notify("Sound Library", "Enter a valid Roblox Sound ID!", true, true); return end
+        local sName = (State.SoundInputName ~= "" and State.SoundInputName) or ("Sound_" .. Fn.GetAssetId(normId))
+        table.insert(State.SavedSounds, { Name = sName, Id = normId })
+        State.SelectedSavedSoundIdx = #State.SavedSounds
+        Fn.SaveSoundsToFile()
+        soundDropLbl.Text = sName .. " (" .. Fn.GetAssetId(normId) .. ")"
+        Fn.Notify("Sound Library", "Saved '" .. sName .. "' permanently!")
+    end)
+
+    Fn.AddButton(libCard, "Apply Selected to Gun Sound", false, function()
+        local chosen = State.SavedSounds[State.SelectedSavedSoundIdx]
+        if chosen then
+            Settings.CustomGunSoundID = chosen.Id; Settings.CustomGunAudio = true
+            if State.ToggleUpdaters["Custom Gun & Impacts"] then State.ToggleUpdaters["Custom Gun & Impacts"](true) end
+            Fn.RefreshAllSounds(); Fn.Notify("Audio", "Gun Sound -> " .. chosen.Name)
+        end
+    end)
+
+    Fn.AddButton(libCard, "Apply Selected to Headshot", false, function()
+        local chosen = State.SavedSounds[State.SelectedSavedSoundIdx]
+        if chosen then
+            Settings.CustomHeadshotSoundID = chosen.Id; Settings.CustomHeadshotAudio = true
+            if State.ToggleUpdaters["Custom Headshot Sound"] then State.ToggleUpdaters["Custom Headshot Sound"](true) end
+            Fn.ApplyHeadshots(); Fn.Notify("Audio", "Headshot -> " .. chosen.Name)
+        end
+    end)
+
+    Fn.AddButton(libCard, "Apply Selected to Skits", false, function()
+        local chosen = State.SavedSounds[State.SelectedSavedSoundIdx]
+        if chosen then
+            Settings.CustomSkitsSoundID = chosen.Id; Settings.CustomSkitsAudio = true
+            if State.ToggleUpdaters["Custom Skits Sound"] then State.ToggleUpdaters["Custom Skits Sound"](true) end
+            Fn.RefreshAllSounds(); Fn.Notify("Audio", "Skits -> " .. chosen.Name)
+        end
+    end)
+
+    Fn.AddButton(libCard, "Delete Selected Sound", true, function()
+        if #State.SavedSounds > 1 and State.SavedSounds[State.SelectedSavedSoundIdx] then
+            local rem = table.remove(State.SavedSounds, State.SelectedSavedSoundIdx)
+            State.SelectedSavedSoundIdx = math.clamp(State.SelectedSavedSoundIdx, 1, #State.SavedSounds)
+            Fn.SaveSoundsToFile(); Fn.Notify("Sound Library", "Deleted: " .. rem.Name); Fn.RenderWeapon()
+        end
+    end)
+end
+
+function Fn.RenderMovement()
+    Fn.ClearColumns()
+    local moveCard = Fn.CreateGroupCard(UI.LeftCol, "Movement & Teleport")
+    Fn.AddCheckbox(moveCard, "Enable WalkSpeed", Settings.EnableWalkSpeed, function(v)
+        Settings.EnableWalkSpeed = v; if not v then Fn.RestoreWalkSpeedState() end
+    end, function() return Settings.WalkSpeedKey end, function(k) Settings.WalkSpeedKey = k end)
+    Fn.AddSlider(moveCard, "WalkSpeed", 6, 45, Settings.WalkSpeed, " spd", function(v) Settings.WalkSpeed = v end)
+    Fn.AddCheckbox(moveCard, "Click TP (Hold Key + LMB)", Settings.ClickTP, function(v)
+        Settings.ClickTP = v
+        Fn.Notify("Click TP", v and ("Enabled (" .. (Settings.ClickTPKey and (Settings.ClickTPKey.Name .. " + LMB") or "LMB") .. ")") or "Disabled")
+    end, function() return Settings.ClickTPKey end, function(k) Settings.ClickTPKey = k end)
+    Fn.AddCheckbox(moveCard, "Noclip", Settings.Noclip, function(v) Settings.Noclip = v end)
+    Fn.AddCheckbox(moveCard, "CFrame Fly", Settings.FlyEnabled, function(v) Settings.FlyEnabled = v end)
+    Fn.AddSlider(moveCard, "Fly Speed", 1, 15, Settings.FlySpeed, " spd", function(v) Settings.FlySpeed = v end)
+
+    local charCard = Fn.CreateGroupCard(UI.LeftCol, "Character & Anti-Aim")
+    Fn.AddCheckbox(charCard, "Ghost Mode", Settings.GhostMode, function(v) Settings.GhostMode = v; Fn.ApplyGhostMode(v); Fn.Notify("Ghost Mode", v and "Enabled" or "Restored to normal") end)
+    Fn.AddCheckbox(charCard, "Spinbot", Settings.Spinbot, function(v) Settings.Spinbot = v end)
+    Fn.AddSlider(charCard, "Spin Speed", 5, 120, Settings.SpinSpeed, " deg/s", function(v) Settings.SpinSpeed = v end)
+    Fn.AddButton(charCard, "Respawn Character", true, function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
+    end)
+
+    local statCard = Fn.CreateGroupCard(UI.RightCol, "Session Movement Stats & Inputs")
+    Fn.AddCheckbox(statCard, "Key / Input Display (Draggable)", Settings.ShowKeyDisplay, function(v) Settings.ShowKeyDisplay = v end)
+    Fn.AddCheckbox(statCard, "Movement Stats HUD (Draggable)", Settings.ShowMovementHUD, function(v) Settings.ShowMovementHUD = v end)
+    Fn.AddInfoRow(statCard, "Current Speed", string.format("%.1f studs/s", State.SessionStats.CurrentSpeed), "MoveSpeed")
+    Fn.AddInfoRow(statCard, "Jump Counter", tostring(State.SessionStats.Jumps), "MoveJumps")
+    Fn.AddInfoRow(statCard, "Distance Traveled", string.format("%.0f studs", State.SessionStats.DistanceStuds), "MoveDist")
+    Fn.AddInfoRow(statCard, "Movement Timer", "00:00", "MoveTime")
+    Fn.AddButton(statCard, "Reset Movement Stats", false, function()
+        State.SessionStats.Jumps = 0; State.SessionStats.DistanceStuds = 0; State.SessionStats.MovementTime = 0
+        Fn.Notify("Movement Stats", "Session movement stats reset")
+    end)
+end
+
+function Fn.RenderMisc()
+    Fn.ClearColumns()
+    local optCard = Fn.CreateGroupCard(UI.LeftCol, "FPS & Utilities")
+    Fn.AddCheckbox(optCard, "FPS Boost (SmoothPlastic)", Settings.FPSBoost, function(v) Settings.FPSBoost = v; Fn.ApplyFPSBoost(v) end)
+    Fn.AddCheckbox(optCard, "No Decals & Textures", Settings.NoDecals, function(v) Settings.NoDecals = v; Fn.ApplyNoDecals(v) end)
+    Fn.AddCheckbox(optCard, "Anti-AFK", Settings.AntiAFK, function(v) Settings.AntiAFK = v end)
+
+    local adminQuickCard = Fn.CreateGroupCard(UI.LeftCol, "Adonis Admin Protection")
+    Fn.AddCheckbox(adminQuickCard, "Adonis Staff Detector", Settings.AdminDetector, function(v) Settings.AdminDetector = v; if v then Fn.ScanAllPlayersForAdmin(true) else table.clear(State.DetectedAdmins) end end)
+    Fn.AddCheckbox(adminQuickCard, "Auto-Leave on Staff Join", Settings.AdminAutoLeave, function(v) Settings.AdminAutoLeave = v end)
+    Fn.AddCheckbox(adminQuickCard, "Auto-Panic on Staff Join", Settings.AdminAutoPanic, function(v) Settings.AdminAutoPanic = v end)
+
+    local srvCard = Fn.CreateGroupCard(UI.LeftCol, "Server & Session")
+    Fn.AddButton(srvCard, "Server Hop", false, function()
+        Fn.Notify("Server", "Searching for new server...")
+        local ok, data = pcall(function() return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data end)
+        if ok and data then
+            for _, s in ipairs(data) do
+                if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer); break
+                end
+            end
+        end
+    end)
+    Fn.AddButton(srvCard, "Rejoin Server", false, function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+
+    local uiCard = Fn.CreateGroupCard(UI.RightCol, "Interface Customization & Panic")
+    Fn.AddDropdown(uiCard, "Theme Selector", function()
+        local list = {}
+        for tName, _ in pairs(Themes) do table.insert(list, { label = tName, value = tName, active = (Settings.ThemeName == tName) }) end
+        return list
+    end, Settings.ThemeName, function(val) Fn.ApplyTheme(val); Fn.RenderMisc(); return val, true end)
+
+    Fn.AddSlider(uiCard, "UI Scaling", 75, 130, Settings.UIScale, "%", function(v) Settings.UIScale = v; UI.MainScale.Scale = v / 100 end)
+    Fn.AddCheckbox(uiCard, "Menu Animations", Settings.MenuAnimations, function(v) Settings.MenuAnimations = v end)
+    Fn.AddButton(uiCard, "Panic Button (Hide All Overlays)", true, Fn.TogglePanicMode)
+end
+
+function Fn.RenderSettings()
+    Fn.ClearColumns()
+    local cfgCard = Fn.CreateGroupCard(UI.LeftCol, "Save Preferences & Configs")
+    Fn.AddTextBox(cfgCard, "Config Name", "Enter name...", State.NewConfigInputName, function(txt) State.NewConfigInputName = txt end)
+
+    local _, dropLbl = Fn.AddDropdown(cfgCard, "Saved Configs", function()
+        local list = {}
+        for _, cfg in ipairs(Fn.GetSavedConfigs()) do table.insert(list, { label = cfg, value = cfg, active = (cfg == State.SelectedDropdownConfig) }) end
+        return list
+    end, State.SelectedDropdownConfig ~= "" and State.SelectedDropdownConfig or "Select Config...", function(val) State.SelectedDropdownConfig = val; return val, true end)
+
+    Fn.AddButton(cfgCard, "Save Preferences / Config", false, function()
+        if Fn.SaveConfig(State.NewConfigInputName) then
+            State.SelectedDropdownConfig = State.NewConfigInputName; dropLbl.Text = State.NewConfigInputName; Fn.Notify("Settings", "Saved: " .. State.NewConfigInputName)
+        end
+    end)
+    Fn.AddButton(cfgCard, "Load Config", false, function()
+        if State.SelectedDropdownConfig ~= "" and Fn.LoadConfig(State.SelectedDropdownConfig) then Fn.Notify("Settings", "Loaded: " .. State.SelectedDropdownConfig) end
+    end)
+    Fn.AddButton(cfgCard, "Set Autoload", false, function()
+        if State.SelectedDropdownConfig ~= "" then Fn.SetAutoLoadConfig(State.SelectedDropdownConfig); Fn.Notify("Settings", "Autoload set to: " .. State.SelectedDropdownConfig) end
+    end)
+    Fn.AddButton(cfgCard, "Delete Config", true, function()
+        if State.SelectedDropdownConfig ~= "" and Fn.DeleteConfig(State.SelectedDropdownConfig) then
+            Fn.Notify("Settings", "Deleted: " .. State.SelectedDropdownConfig); State.SelectedDropdownConfig = ""; dropLbl.Text = "Select Config..."
+        end
+    end)
+    Fn.AddButton(cfgCard, "Reset Settings to Default", true, Fn.ResetAllSettings)
+
+    local sysCard = Fn.CreateGroupCard(UI.RightCol, "Overlay, Sound & Keybind Manager")
+    Fn.AddCheckbox(sysCard, "Show Notifications", Settings.ShowNotifications, function(v) Settings.ShowNotifications = v; if v then Fn.Notify("Settings", "Notifications Enabled", true) end end)
+    Fn.AddCheckbox(sysCard, "Top Watermark HUD (Draggable)", Settings.ShowWatermark, function(v) Settings.ShowWatermark = v; UI.WatermarkBar.Visible = v and not State.PanicActive end)
+    Fn.AddDropdown(sysCard, "Reset Overlay Positions", function()
+        local out = {}
+        for _, p in ipairs({"Top Center", "Top Left", "Top Right", "Bottom Left"}) do table.insert(out, { label = p, value = p, active = (Settings.OverlayPosition == p) }) end
+        return out
+    end, Settings.OverlayPosition, function(val) Settings.OverlayPosition = val; Fn.ApplyOverlayPosition(); return val, true end)
+
+    Fn.AddCheckbox(sysCard, "Interface Sounds", Settings.UISounds, function(v) Settings.UISounds = v end)
+    Fn.AddSlider(sysCard, "Interface Sound Volume", 0, 100, Settings.UISoundVolume, "%", function(v) Settings.UISoundVolume = v end)
+    Fn.AddKeybindRow(sysCard, "Toggle Menu Key", Settings.ToggleKey, function(k) Settings.ToggleKey = k end)
+    Fn.AddKeybindRow(sysCard, "Panic Hide Key", Settings.PanicKey, function(k) Settings.PanicKey = k end)
+    Fn.AddKeybindRow(sysCard, "Unload Script Key", Settings.UnloadKey, function(k) Settings.UnloadKey = k end)
+    Fn.AddButton(sysCard, "Unload Script", true, Fn.UnloadScript)
+
+    local aboutCard = Fn.CreateGroupCard(UI.RightCol, "About KoSMO Hub")
+    Fn.AddInfoRow(aboutCard, "Edition", "Obsidian Purple v2.5")
+    Fn.AddInfoRow(aboutCard, "License Status", State.KeyExpiration)
+    Fn.AddInfoRow(aboutCard, "Credits", "KoSMO Development Team")
+    Fn.AddInfoRow(aboutCard, "Discord", "discord.gg/kosmo")
+end
+
+--============================================================
+-- 8. TABS, RUNTIME HOOKS & LOOPS (SEPARATE STACK FRAMES)
+--============================================================
+
+function Fn.InitTabsAndKeybinds()
+    local tabsData = {
+        { Name = "Combat", Icon = AssetsCfg.TAB_ICONS.Combat, Render = Fn.RenderCombat },
+        { Name = "Visuals", Icon = AssetsCfg.TAB_ICONS.Visuals, Render = Fn.RenderVisuals },
+        { Name = "Players", Icon = AssetsCfg.TAB_ICONS.Players, Render = Fn.RenderPlayers },
+        { Name = "Weapon", Icon = AssetsCfg.TAB_ICONS.Weapon, Render = Fn.RenderWeapon },
+        { Name = "Movement", Icon = AssetsCfg.TAB_ICONS.Movement, Render = Fn.RenderMovement },
+        { Name = "Misc", Icon = AssetsCfg.TAB_ICONS.Misc, Render = Fn.RenderMisc },
+        { Name = "Settings", Icon = AssetsCfg.TAB_ICONS.Settings, Render = Fn.RenderSettings }
+    }
+
+    Fn.SelectTab = function(name)
+        State.ActiveTabName = name
+        for tName, tObj in pairs(UI.TabButtons) do
+            local isSel = (tName == name)
+            Fn.Tween(tObj.Btn, UI.FastTween, { BackgroundTransparency = isSel and 0.4 or 1 })
+            Fn.Tween(tObj.Txt, UI.FastTween, { TextColor3 = isSel and Settings.Text or Settings.SubText })
+            Fn.Tween(tObj.Icon, UI.FastTween, { ImageColor3 = isSel and Settings.AccentBright or Settings.SubText })
+            Fn.Tween(tObj.Line, UI.FastTween, { BackgroundColor3 = Settings.Accent, BackgroundTransparency = isSel and 0 or 1 })
+        end
+        for _, t in ipairs(tabsData) do
+            if t.Name == name then t.Render(); break end
+        end
+    end
+
+    for i, t in ipairs(tabsData) do
+        local btn = Fn.Create("TextButton", {
+            Size = UDim2.fromOffset(84, 26),
+            Position = UDim2.fromOffset(0, 2),
+            BackgroundColor3 = Settings.BgControl,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            LayoutOrder = i
+        }, UI.TabContainer)
+        Fn.Corner(btn, 4)
+
+        local icon = Fn.Create("ImageLabel", {
+            Size = UDim2.fromOffset(11, 11),
+            Position = UDim2.fromOffset(8, 7),
+            BackgroundTransparency = 1,
+            Image = t.Icon,
+            ImageColor3 = Settings.SubText
+        }, btn)
+
+        local txt = Fn.Label(btn, t.Name, 9, Settings.SubText, Enum.Font.GothamMedium)
+        txt.Position = UDim2.fromOffset(23, 0)
+        txt.Size = UDim2.new(1, -25, 1, 0)
+
+        local line = Fn.Create("Frame", {
+            Size = UDim2.new(1, -10, 0, 2),
+            Position = UDim2.new(0, 5, 1, -2),
+            BackgroundColor3 = Settings.Accent,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0
+        }, btn)
+
+        UI.TabButtons[t.Name] = { Btn = btn, Icon = icon, Txt = txt, Line = line }
+        btn.MouseButton1Click:Connect(function() Fn.PlayUISound(); Fn.SelectTab(t.Name) end)
+    end
+
+    table.insert(State.Connections, UserInputService.InputBegan:Connect(function(input, processed)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and not processed then
+            State.SessionStats.LastAttackTick = tick()
+            if Settings.ClickTP then
+                if Settings.ClickTPKey == nil or UserInputService:IsKeyDown(Settings.ClickTPKey) then
+                    Fn.ExecuteClickTP()
+                end
+            end
+        end
+        if processed then return end
+
+        if Settings.PanicKey and input.KeyCode == Settings.PanicKey then
+            Fn.TogglePanicMode()
+        elseif Settings.ToggleKey and input.KeyCode == Settings.ToggleKey then
+            if State.PanicActive then Fn.TogglePanicMode() else Fn.SetMenuVisible(not UI.Main.Visible) end
+        elseif Settings.UnloadKey and input.KeyCode == Settings.UnloadKey then
+            Fn.UnloadScript()
+        elseif Settings.SilentKey and input.KeyCode == Settings.SilentKey then
+            Settings.Enabled = not Settings.Enabled
+            if State.ToggleUpdaters["Enabled"] then State.ToggleUpdaters["Enabled"](Settings.Enabled) end
+            Fn.Notify("KoSMO Hub", "Silent Aim " .. (Settings.Enabled and "Enabled" or "Disabled"))
+        elseif Settings.CustomPartKey and input.KeyCode == Settings.CustomPartKey then
+            Settings.CustomPart = not Settings.CustomPart
+            if State.ToggleUpdaters["Custom Part (Closest)"] then State.ToggleUpdaters["Custom Part (Closest)"](Settings.CustomPart) end
+        elseif Settings.AimbotKey and input.KeyCode == Settings.AimbotKey then
+            Settings.AimbotEnabled = not Settings.AimbotEnabled
+            if not Settings.AimbotEnabled then State.CurrentAimbotTargetPlayer = nil end
+            if State.ToggleUpdaters["Aimbot Enabled"] then State.ToggleUpdaters["Aimbot Enabled"](Settings.AimbotEnabled) end
+            Fn.Notify("KoSMO Hub", "Aimbot " .. (Settings.AimbotEnabled and "Enabled" or "Disabled"))
+        elseif Settings.AimbotCustomPartKey and input.KeyCode == Settings.AimbotCustomPartKey then
+            Settings.AimbotCustomPart = not Settings.AimbotCustomPart
+            if State.ToggleUpdaters["Aimbot Custom Part"] then State.ToggleUpdaters["Aimbot Custom Part"](Settings.AimbotCustomPart) end
+        elseif Settings.AimbotWallCheckKey and input.KeyCode == Settings.AimbotWallCheckKey then
+            Settings.AimbotWallCheck = not Settings.AimbotWallCheck
+            if State.ToggleUpdaters["Aimbot Wall Check"] then State.ToggleUpdaters["Aimbot Wall Check"](Settings.AimbotWallCheck) end
+        elseif Settings.RageKey and input.KeyCode == Settings.RageKey then
+            Settings.RageMode = not Settings.RageMode
+            if not Settings.RageMode then State.CurrentRageTarget = nil end
+            if State.ToggleUpdaters["Enable Rage Mode"] then State.ToggleUpdaters["Enable Rage Mode"](Settings.RageMode) end
+            Fn.Notify("Rage Mode", Settings.RageMode and "Synced with Aimbot target" or "Disabled")
+        elseif Settings.ESPKey and input.KeyCode == Settings.ESPKey then
+            Settings.ESPEnabled = not Settings.ESPEnabled
+            if State.ToggleUpdaters["Enable ESP"] then State.ToggleUpdaters["Enable ESP"](Settings.ESPEnabled) end
+            Fn.Notify("KoSMO Hub", "ESP " .. (Settings.ESPEnabled and "Enabled" or "Disabled"))
+        elseif Settings.WalkSpeedKey and input.KeyCode == Settings.WalkSpeedKey then
+            Settings.EnableWalkSpeed = not Settings.EnableWalkSpeed
+            if not Settings.EnableWalkSpeed then Fn.RestoreWalkSpeedState() end
+            if State.ToggleUpdaters["Enable WalkSpeed"] then State.ToggleUpdaters["Enable WalkSpeed"](Settings.EnableWalkSpeed) end
+        end
+    end))
+end
+
+function Fn.InitRuntimeConnections()
+    local function hookEnemyHumanoid(hum)
+        if not hum or State.TrackedHumanoids[hum] then return end
+        State.TrackedHumanoids[hum] = true
+        local lastHp, killCounted = hum.Health, false
+        hum.HealthChanged:Connect(function(newHp)
+            local diff = lastHp - newHp
+            if diff > 0 then
+                local hasTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") ~= nil
+                local recentlyAttacked = (tick() - State.SessionStats.LastAttackTick) <= 1.75
+                if hasTool or recentlyAttacked or Settings.Enabled or Settings.AimbotEnabled or Settings.RageMode then
+                    State.SessionStats.DamageDealt += math.floor(diff + 0.5)
+                    Fn.TriggerHitmarker()
+                    if newHp <= 0 and not killCounted then
+                        killCounted = true
+                        State.SessionStats.Kills += 1
+                    end
+                end
+            end
+            lastHp = newHp
+        end)
+    end
+
+    local function watchPlayer(player)
+        if player == LocalPlayer then return end
+        if player.Character then
+            local hum = player.Character:FindFirstChildWhichIsA("Humanoid")
+            if hum then hookEnemyHumanoid(hum) end
+        end
+        player.CharacterAdded:Connect(function(char)
+            local hum = char:WaitForChild("Humanoid", 5)
+            if hum then hookEnemyHumanoid(hum) end
+        end)
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do watchPlayer(p) end
+    table.insert(State.Connections, Players.PlayerAdded:Connect(function(plr)
+        watchPlayer(plr)
+        Fn.InspectPlayerForAdmin(plr, false)
+    end))
+
+    table.insert(State.Connections, Players.PlayerRemoving:Connect(function(plr)
+        Fn.RemoveESP(plr)
+        State.DetectedAdmins[plr] = nil
+        if State.CurrentAimbotTargetPlayer == plr then State.CurrentAimbotTargetPlayer = nil end
+        if State.CurrentSilentTargetPlayer == plr then State.CurrentSilentTargetPlayer = nil end
+        if State.CurrentRageTarget == plr then State.CurrentRageTarget = nil end
+        if State.SelectedPlayerObj == plr then State.SelectedPlayerObj = nil end
+        if State.SpectatingPlayer == plr then
+            State.SpectatingPlayer = nil
+            local cam = Fn.GetCamera()
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            if cam and hum then cam.CameraSubject = hum end
+        end
+    end))
+
+    table.insert(State.Connections, workspace.DescendantAdded:Connect(function(obj)
+        if Settings.FPSBoost and obj:IsA("BasePart") then
+            if not State.OriginalMaterials[obj] then State.OriginalMaterials[obj] = obj.Material end
+            obj.Material = Enum.Material.SmoothPlastic
+        end
+        if Settings.NoDecals and (obj:IsA("Decal") or obj:IsA("Texture")) then
+            if State.OriginalTransparencies[obj] == nil then State.OriginalTransparencies[obj] = obj.Transparency end
+            obj.Transparency = 1
+        end
+    end))
+
+    table.insert(State.Connections, game.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Sound") then
+            if Settings.CustomGunAudio or Settings.CustomSkitsAudio then task.defer(Fn.ProcessSound, obj) end
+        elseif Settings.CustomAR15Skin or Settings.CustomSMGSkin or Settings.CustomSparksTexture or Settings.CustomSkybox then
+            task.defer(Fn.ProcessAssetObject, obj)
+        end
+    end))
+
+    local lastJumpTick = 0
+    local function setupChar(char)
+        if not char then return end
+        table.clear(State.OriginalCollideStates)
+        for _, tool in ipairs(char:GetChildren()) do Fn.ApplyToTool(tool) end
+        char.ChildAdded:Connect(function(c)
+            if c:IsA("Tool") then
+                task.wait(0.05)
+                Fn.ApplyToTool(c)
+                if Settings.CustomAR15Skin or Settings.CustomSMGSkin then
+                    for _, d in ipairs(c:GetDescendants()) do Fn.ProcessAssetObject(d) end
+                end
+            end
+        end)
+        if Settings.GhostMode then task.delay(0.1, function() Fn.ApplyGhostMode(true) end) end
+
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hum.Died:Connect(function() State.SessionStats.Deaths += 1 end)
+            hum.Jumping:Connect(function(active)
+                if active and (tick() - lastJumpTick) > 0.25 then
+                    lastJumpTick = tick(); State.SessionStats.Jumps += 1
+                end
+            end)
+        end
+
+        local bp = LocalPlayer:WaitForChild("Backpack", 5)
+        if bp then
+            for _, tool in ipairs(bp:GetChildren()) do Fn.ApplyToTool(tool) end
+            bp.ChildAdded:Connect(function(c)
+                if c:IsA("Tool") then
+                    task.wait(0.05)
+                    Fn.ApplyToTool(c)
+                    if Settings.CustomAR15Skin or Settings.CustomSMGSkin then
+                        for _, d in ipairs(c:GetDescendants()) do Fn.ProcessAssetObject(d) end
+                    end
+                end
+            end)
+        end
+        task.delay(0.8, Fn.ApplyHeadshots)
+    end
+
+    if LocalPlayer.Character then setupChar(LocalPlayer.Character) end
+    table.insert(State.Connections, LocalPlayer.CharacterAdded:Connect(setupChar))
+
+    task.spawn(function()
+        pcall(function()
+            local scMod = ReplicatedStorage:WaitForChild("SimpleCast", 5)
+            if scMod then
+                local sc = require(scMod)
+                if sc and sc.Fire then
+                    local origFire = sc.Fire
+                    sc.Fire = function(self, origin, direction, speed, options)
+                        State.SessionStats.LastAttackTick = tick()
+                        if Settings.Enabled then
+                            local targetPart = Fn.FindClosestTarget(Fn.GetCurrentFOV(), Settings.CustomPart, Settings.WallCheck)
+                            if targetPart and (Settings.HitProbability >= 100 or math.random(1, 100) <= Settings.HitProbability) then
+                                direction = (targetPart.Position - origin).Unit
+                            end
+                        end
+                        return origFire(self, origin, direction, speed, options)
+                    end
+                end
+            end
+        end)
+    end)
+
+    table.insert(State.Connections, RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
+
+        if hum and Settings.EnableWalkSpeed then hum.WalkSpeed = math.clamp(Settings.WalkSpeed, 6, 45) end
+        if root then
+            if Settings.FlyEnabled and not Settings.RageMode then
+                local cam = Fn.GetCamera()
+                if cam then
+                    local flyVec = Vector3.zero
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then flyVec += cam.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then flyVec -= cam.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then flyVec -= cam.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then flyVec += cam.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then flyVec += Vector3.yAxis end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then flyVec -= Vector3.yAxis end
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    if flyVec.Magnitude > 0 then
+                        root.CFrame += (flyVec.Unit * (math.clamp(Settings.FlySpeed, 1, 15) * 0.4))
+                    end
+                end
+            end
+            if Settings.Spinbot and not Settings.RageMode then
+                root.CFrame *= CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+            end
+        end
+
+        local noclipNeeded = Settings.Noclip or Settings.FlyEnabled or Settings.RageMode
+        if noclipNeeded or Settings.GhostMode then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if noclipNeeded then
+                        if State.OriginalCollideStates[part] == nil then State.OriginalCollideStates[part] = part.CanCollide end
+                        part.CanCollide = false
+                    end
+                    if Settings.GhostMode and part.Name ~= "HumanoidRootPart" then part.LocalTransparencyModifier = 0.65 end
+                end
+            end
+            State.WasNoclipActive = noclipNeeded
+        elseif State.WasNoclipActive then
+            State.WasNoclipActive = false
+            Fn.RestoreNoclipState()
+        end
+    end))
+
+    table.insert(State.Connections, RunService.Heartbeat:Connect(function(dt)
+        if Settings.RageMode then Fn.UpdateRageMode() end
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+        if root and hum then
+            local flatVel = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+            State.SessionStats.CurrentSpeed = math.floor(flatVel * 10) / 10
+            if flatVel > 1.2 or hum.MoveDirection.Magnitude > 0.05 then
+                State.SessionStats.MovementTime += dt
+                State.SessionStats.DistanceStuds += flatVel * dt
+            end
+        else
+            State.SessionStats.CurrentSpeed = 0
+        end
+    end))
+
+    local currentFPS, fpsTimer, frameCounter = 60, 0, 0
+    table.insert(State.Connections, RunService.RenderStepped:Connect(function(dt)
+        frameCounter += 1
+        fpsTimer += dt
+        if fpsTimer >= 0.4 then
+            currentFPS = math.floor(frameCounter / fpsTimer)
+            frameCounter, fpsTimer = 0, 0
+
+            local ping = 0
+            pcall(function() ping = math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+            local cam = Fn.GetCamera()
+            local curFOV = cam and math.floor(cam.FieldOfView) or 70
+            local themeHex = (Themes[Settings.ThemeName] and Themes[Settings.ThemeName].Hex) or "#9b5cff"
+            local staffCount = Fn.CountDetectedAdmins()
+
+            if Settings.ShowWatermark and not State.PanicActive then
+                local staffTag = (Settings.AdminDetector and staffCount > 0)
+                    and string.format('  <font color="#504868">|</font>  <font color="#ee526c"><b>STAFF: %d</b></font>', staffCount) or ""
+                UI.WMText.Text = string.format('<font color="%s"><b>KoSMO</b></font>  <font color="#504868">|</font>  %d fps  <font color="#504868">|</font>  %d ms  <font color="#504868">|</font>  %s  <font color="#504868">|</font>  %s%s', themeHex, currentFPS, ping, os.date("%H:%M:%S"), LocalPlayer.Name, staffTag)
+            end
+
+            UI.PerfCard.Visible = Settings.PerformanceOverlay and not State.PanicActive
+            if UI.PerfCard.Visible then
+                UI.PerfText.Text = string.format("FPS: %d  |  Ping: %dms%s", currentFPS, ping, Settings.ShowFOVDisplay and ("  |  FOV: " .. curFOV) or "")
+            elseif Settings.ShowFOVDisplay and not State.PanicActive then
+                UI.PerfCard.Visible = true
+                UI.PerfText.Text = "Camera FOV: " .. curFOV .. "°"
+            end
+
+            UI.CombatHUDCard.Visible = Settings.ShowCombatStatsHUD and not State.PanicActive
+            local s = State.SessionStats
+            if UI.CombatHUDCard.Visible then
+                UI.CombatHUDText.Text = string.format("K: %d  |  D: %d  |  K/D: %.2f  |  DMG: %d", s.Kills, s.Deaths, s.Kills / math.max(1, s.Deaths), s.DamageDealt)
+            end
+
+            UI.MoveHUDCard.Visible = Settings.ShowMovementHUD and not State.PanicActive
+            if UI.MoveHUDCard.Visible then
+                UI.MoveHUDText.Text = string.format("Spd: %.1f  |  Jumps: %d  |  %02d:%02d", s.CurrentSpeed, s.Jumps, math.floor(s.MovementTime / 60), math.floor(s.MovementTime % 60))
+            end
+
+            for _, upd in pairs(State.StatsLabelUpdaters) do pcall(upd) end
+        end
+
+        UI.KeyDisplayFrame.Visible = Settings.ShowKeyDisplay and not State.PanicActive
+        if UI.KeyDisplayFrame.Visible then
+            local kStates = {
+                W = UserInputService:IsKeyDown(Enum.KeyCode.W),
+                A = UserInputService:IsKeyDown(Enum.KeyCode.A),
+                S = UserInputService:IsKeyDown(Enum.KeyCode.S),
+                D = UserInputService:IsKeyDown(Enum.KeyCode.D),
+                SPACE = UserInputService:IsKeyDown(Enum.KeyCode.Space),
+                LMB = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+            }
+            for k, active in pairs(kStates) do
+                local tile = UI.KeyBoxes[k]
+                if tile then
+                    tile.Frame.BackgroundColor3 = active and Settings.Accent or Settings.BgMain
+                    tile.Stroke.Color = active and Settings.AccentBright or Settings.Border
+                    tile.Label.TextColor3 = active and Color3.new(1, 1, 1) or Settings.SubText
+                end
+            end
+        end
+
+        local activeFOV = Fn.GetCurrentFOV()
+        local mousePos = Fn.GetMousePosition()
+
+        UI.CrosshairHolder.Visible = Settings.CrosshairEnabled and not State.PanicActive
+        if UI.CrosshairHolder.Visible then
+            if Settings.CrosshairFollowMouse then
+                UI.CrosshairHolder.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
+            else
+                local cam = Fn.GetCamera()
+                if cam then UI.CrosshairHolder.Position = UDim2.fromOffset(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5) end
+            end
+        end
+
+        if Settings.RainbowFOV then Settings.FOVColor = Color3.fromHSV((tick() % 5) / 5, 0.75, 1) end
+        if Settings.AimbotRainbowFOV then Settings.AimbotFOVColor = Color3.fromHSV((tick() % 5) / 5, 0.75, 1) end
+
+        if Settings.Enabled and Settings.ShowFOV and not State.PanicActive then
+            UI.FOVFrame.Visible = true
+            UI.FOVFrame.Size = UDim2.fromOffset(activeFOV * 2, activeFOV * 2)
+            UI.FOVFrame.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
+            UI.FOVStroke.Color = Settings.FOVColor
+        else
+            UI.FOVFrame.Visible = false
+        end
+
+        if Settings.AimbotEnabled and Settings.AimbotShowFOV and not State.PanicActive then
+            UI.AimbotFOVFrame.Visible = true
+            UI.AimbotFOVFrame.Size = UDim2.fromOffset(Settings.AimbotFOV * 2, Settings.AimbotFOV * 2)
+            UI.AimbotFOVFrame.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
+            UI.AimbotFOVStroke.Color = Settings.AimbotFOVColor
+        else
+            UI.AimbotFOVFrame.Visible = false
+        end
+
+        if Settings.Enabled then
+            local _, bestScreenPos, silentPlr = Fn.FindClosestTarget(activeFOV, Settings.CustomPart, Settings.WallCheck)
+            State.CurrentSilentTargetPlayer = silentPlr
+            if Settings.ShowDot and bestScreenPos and not State.PanicActive then
+                UI.TargetDotFrame.Visible = true
+                UI.TargetDotFrame.Position = UDim2.fromOffset(bestScreenPos.X, bestScreenPos.Y)
+                UI.TargetDotFrame.BackgroundColor3 = Settings.TargetColor
+            else
+                UI.TargetDotFrame.Visible = false
+            end
+        else
+            State.CurrentSilentTargetPlayer = nil
+            UI.TargetDotFrame.Visible = false
+        end
+
+        if Settings.AimbotEnabled then
+            local abPart, abScreenPos, abPlayer = Fn.FindClosestTarget(Settings.AimbotFOV, Settings.AimbotCustomPart, Settings.AimbotWallCheck)
+            if abPlayer then
+                State.CurrentAimbotTargetPlayer = abPlayer
+                if abPart and abScreenPos then Fn.RunAimbot(abPart, abScreenPos) end
+            elseif Settings.RageMode and Settings.RageTargetMode == "Aimbot Locked" and Fn.IsValidRageTarget(State.CurrentRageTarget) then
+                State.CurrentAimbotTargetPlayer = State.CurrentRageTarget
+                local rChar = State.CurrentRageTarget.Character
+                local rPart = rChar and (rChar:FindFirstChild("Head") or rChar:FindFirstChild("HumanoidRootPart"))
+                local cam = Fn.GetCamera()
+                if rPart and cam then
+                    local sp, onScr = cam:WorldToViewportPoint(rPart.Position)
+                    if onScr and sp.Z > 0 then Fn.RunAimbot(rPart, Vector2.new(sp.X, sp.Y)) end
+                end
+            else
+                State.CurrentAimbotTargetPlayer = nil
+            end
+        else
+            State.CurrentAimbotTargetPlayer = nil
+        end
+
+        Fn.UpdateESP()
+    end))
+
+    table.insert(State.Connections, LocalPlayer.Idled:Connect(function()
+        if Settings.AntiAFK then
+            VirtualUser:Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
+        end
+    end))
+end
+
+--============================================================
+-- 9. BOOTSTRAP
+--============================================================
+
+task.spawn(function()
+    Fn.LoadSavedSounds()
+    task.spawn(Fn.FetchKeyInformation)
+    Fn.BuildOverlaysAndWindow()
+    Fn.PlayStartupRainLoader()
+    Fn.InitTabsAndKeybinds()
+    Fn.InitRuntimeConnections()
+    Fn.ApplyTheme(Settings.ThemeName)
+    Fn.UpdateCrosshairStyle()
+
+    local auto = Fn.GetAutoLoadConfig()
+    if auto then Fn.LoadConfig(auto) end
+
+    Fn.SetMenuVisible(true)
+    Fn.SelectTab("Combat")
+    Fn.Notify("KoSMO Hub", "Loaded successfully (" .. (Settings.ToggleKey and Settings.ToggleKey.Name or "RightShift") .. " to toggle)")
+    Fn.ScanAllPlayersForAdmin(false)
+end)
