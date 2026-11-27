@@ -1,7 +1,6 @@
 --============================================================
 -- KOSMOS HUB — STANDALONE LOADER & KEY SYSTEM
--- Discord Authentication Logging
--- HWID Locking | Auto Login | Multi-Place | PC/Mobile
+-- Smooth Rounded Chill Rain UI | HWID Auto-Login | PC/Mobile
 --============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -10,6 +9,9 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local HWID = RbxAnalyticsService:GetClientId()
@@ -19,128 +21,8 @@ local KEY_FILE = "KosmosKey.txt"
 local JSON_KEYS_URL =
     "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KosmosPaidKeys.json"
 
-local LOADER_URL = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/LoaderKoSMO"
-
---============================================================
--- DISCORD LOGGER
---============================================================
-
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1568397085223428117/fesIzNJkyDgTv0e7h66q5Q6HDFIquxtujqL7c4QY3rSHG7U7mB71Aq4vdfXx5L4JGV4G"
-
-local function GetExecutorName()
-    local success, result = pcall(function()
-        if identifyexecutor then
-            return identifyexecutor()
-        elseif getexecutorname then
-            return getexecutorname()
-        end
-
-        return "Unknown Executor"
-    end)
-
-    return success and tostring(result) or "Unknown Executor"
-end
-
-local function MaskKey(key)
-    return tostring(key or "Unknown")
-end
-
-local function SendAuthLog(key)
-    if WEBHOOK_URL == "" or WEBHOOK_URL == "YOUR_NEW_WEBHOOK_URL" then
-        return
-    end
-
-    local executor = GetExecutorName()
-
-    local payload = {
-        username = "KoSMOS Security",
-
-        embeds = {{
-            title = "KoSMOS HUB — Authentication",
-            color = 9568255,
-
-            fields = {
-                {
-                    name = "Roblox Username",
-                    value = LocalPlayer.Name,
-                    inline = true
-                },
-                {
-                    name = "Display Name",
-                    value = LocalPlayer.DisplayName,
-                    inline = true
-                },
-                {
-                    name = "Executor",
-                    value = executor,
-                    inline = true
-                },
-                {
-                    name = "License Key",
-                    value = MaskKey(key),
-                    inline = false
-                },
-                {
-                    name = "Device",
-                    value = IsMobile and "Mobile" or "PC",
-                    inline = true
-                },
-                {
-                    name = "Place ID",
-                    value = tostring(game.PlaceId),
-                    inline = true
-                },
-                {
-                    name = "Universe ID",
-                    value = tostring(game.GameId),
-                    inline = true
-                },
-                {
-                    name = "Timestamp",
-                    value = os.date("!%Y-%m-%d %H:%M:%S UTC"),
-                    inline = false
-                }
-            },
-
-            footer = {
-                text = "KoSMOS HUB | Authentication Logs"
-            }
-        }}
-    }
-
-    local requestFunction =
-        (syn and syn.request)
-        or http_request
-        or request
-
-    if not requestFunction then
-        warn("[KOSMOS] HTTP requests unavailable")
-        return
-    end
-
-    task.spawn(function()
-        local success, err = pcall(function()
-            local response = requestFunction({
-                Url = WEBHOOK_URL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = HttpService:JSONEncode(payload)
-            })
-
-            if response and response.StatusCode
-                and response.StatusCode >= 400 then
-                warn("[KOSMOS WEBHOOK] HTTP " ..
-                    tostring(response.StatusCode))
-            end
-        end)
-
-        if not success then
-            warn("[KOSMOS WEBHOOK] " .. tostring(err))
-        end
-    end)
-end
+local LOADER_URL =
+    "https://raw.githubusercontent.com/walx-x/Kosmo/refs/heads/main/Loader.lua"
 
 --============================================================
 -- DEVICE DETECTION
@@ -169,35 +51,131 @@ end
 local IsMobile = IsMobileDevice()
 
 --============================================================
--- SUPPORTED GAMES
+-- DISCORD LOGGER (SENDS HWID & KEY TO BOT LISTENER)
+--============================================================
+
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1568397085223428117/fesIzNJkyDgTv0e7h66q5Q6HDFIquxtujqL7c4QY3rSHG7U7mB71Aq4vdfXx5L4JGV4G"
+
+local function GetExecutorName()
+    local success, result = pcall(function()
+        if identifyexecutor then
+            return identifyexecutor()
+        elseif getexecutorname then
+            return getexecutorname()
+        end
+        return "Unknown Executor"
+    end)
+
+    return success and tostring(result) or "Unknown Executor"
+end
+
+local function MaskKey(key)
+    return tostring(key or "Unknown")
+end
+
+local function SendAuthLog(key)
+    if WEBHOOK_URL == "" or WEBHOOK_URL == "YOUR_NEW_WEBHOOK_URL" then
+        return
+    end
+
+    local executor = GetExecutorName()
+
+    local payload = {
+        username = "KoSMOS Security",
+        embeds = {{
+            title = "KoSMOS HUB — Authentication",
+            color = 7645439,
+            fields = {
+                {
+                    name = "Roblox Username",
+                    value = LocalPlayer.Name,
+                    inline = true
+                },
+                {
+                    name = "Display Name",
+                    value = LocalPlayer.DisplayName,
+                    inline = true
+                },
+                {
+                    name = "Executor",
+                    value = executor,
+                    inline = true
+                },
+                {
+                    name = "License Key",
+                    value = "`" .. MaskKey(key) .. "`",
+                    inline = false
+                },
+                {
+                    name = "HWID",
+                    value = "`" .. tostring(HWID) .. "`",
+                    inline = false
+                },
+                {
+                    name = "Device",
+                    value = IsMobile and "Mobile" or "PC",
+                    inline = true
+                },
+                {
+                    name = "Place ID",
+                    value = tostring(game.PlaceId),
+                    inline = true
+                },
+                {
+                    name = "Universe ID",
+                    value = tostring(game.GameId),
+                    inline = true
+                },
+                {
+                    name = "Timestamp",
+                    value = os.date("!%Y-%m-%d %H:%M:%S UTC"),
+                    inline = false
+                }
+            },
+            footer = {
+                text = "KoSMOS HUB | Authentication Logs"
+            }
+        }}
+    }
+
+    local requestFunction = (syn and syn.request) or http_request or request
+    if not requestFunction then
+        warn("[KOSMOS] HTTP requests unavailable")
+        return
+    end
+
+    task.spawn(function()
+        pcall(function()
+            requestFunction({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = HttpService:JSONEncode(payload)
+            })
+        end)
+    end)
+end
+
+--============================================================
+-- SUPPORTED GAMES & GAME DETECTION
 --============================================================
 
 local SupportedGames = {
-
     [114478751418135] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
     },
-
     [77463332823746] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMO-SLR-Mobile"
     },
-
     [112731528776884] = {
         PC = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua",
         Mobile = "https://raw.githubusercontent.com/walx-x/kosmoskeystxt/refs/heads/main/KoSMOKD.lua"
     }
 }
 
-local ExtraUniverses = {
-    -- [123456789] = { PC = "https://...", Mobile = "https://..." }
-}
-
---============================================================
--- GAME DETECTION
---============================================================
-
+local ExtraUniverses = {}
 local UniverseCache = {}
 
 local function GetUniverseIdFromPlace(placeId)
@@ -207,10 +185,8 @@ local function GetUniverseIdFromPlace(placeId)
 
     local ok, universeId = pcall(function()
         local raw = game:HttpGet(
-            "https://apis.roblox.com/universes/v1/places/"
-            .. tostring(placeId) .. "/universe"
+            "https://apis.roblox.com/universes/v1/places/" .. tostring(placeId) .. "/universe"
         )
-
         return HttpService:JSONDecode(raw).universeId
     end)
 
@@ -244,7 +220,7 @@ local function FindGameEntry()
 end
 
 --============================================================
--- FILE MANAGEMENT
+-- FILE MANAGEMENT & GAME LAUNCHER
 --============================================================
 
 local function GetSavedKey()
@@ -252,12 +228,10 @@ local function GetSavedKey()
         local success, result = pcall(function()
             return readfile(KEY_FILE)
         end)
-
         if success and result then
             return result:gsub("%s+", "")
         end
     end
-
     return nil
 end
 
@@ -277,43 +251,27 @@ local function DeleteSavedKey()
     end
 end
 
---============================================================
--- GAME SCRIPT
---============================================================
-
 local function GetScriptForCurrentGame()
     local gameData = FindGameEntry()
-
-    if not gameData then
-        return nil
-    end
+    if not gameData then return nil end
 
     if IsMobile and gameData.Mobile then
         return gameData.Mobile
     end
-
     return gameData.PC or gameData.Mobile
 end
 
 local function LaunchGameScript(scriptUrl)
     task.spawn(function()
         local success, err = pcall(function()
-            local code = game:HttpGet(
-                scriptUrl .. "?nocache=" .. tostring(os.time())
-            )
-
+            local code = game:HttpGet(scriptUrl .. "?nocache=" .. tostring(os.time()))
             loadstring(code)()
         end)
-
         if not success then
             warn("[KOSMOS LOADER ERROR]: " .. tostring(err))
         end
     end)
 end
-
---============================================================
--- TELEPORT SUPPORT
---============================================================
 
 local function QueueLoaderOnTeleport()
     local queueFn =
@@ -321,15 +279,7 @@ local function QueueLoaderOnTeleport()
         or queue_on_teleport
         or (fluxus and fluxus.queue_on_teleport)
 
-    if not queueFn then
-        warn("[KOSMOS] queue_on_teleport unavailable")
-        return
-    end
-
-    if not LOADER_URL
-        or LOADER_URL == ""
-        or LOADER_URL:find("INSERISCI") then
-        warn("[KOSMOS] Configure LOADER_URL")
+    if not queueFn or not LOADER_URL or LOADER_URL == "" then
         return
     end
 
@@ -345,18 +295,16 @@ local function StartGame(scriptUrl)
 end
 
 --============================================================
--- KEY VERIFICATION
+-- KEY VERIFICATION & HWID AUTO-LOGIN
 --============================================================
 
-local function VerifyKeyOnline(userKey)
+local function FetchKeysDatabase()
     local success, response = pcall(function()
-        return game:HttpGet(
-            JSON_KEYS_URL .. "?nocache=" .. tostring(os.time())
-        )
+        return game:HttpGet(JSON_KEYS_URL .. "?nocache=" .. tostring(os.time()))
     end)
 
     if not success or not response then
-        return false, "Database connection error!"
+        return nil, "Database connection error!"
     end
 
     local dbSuccess, keysData = pcall(function()
@@ -364,157 +312,584 @@ local function VerifyKeyOnline(userKey)
     end)
 
     if not dbSuccess or type(keysData) ~= "table" then
-        return false, "Invalid key database format!"
+        return nil, "Invalid key database format!"
+    end
+
+    return keysData, nil
+end
+
+local function CheckAutoLoginByHWID()
+    local keysData = FetchKeysDatabase()
+    if not keysData then
+        return nil
+    end
+
+    -- 1. Check locally saved key first
+    local savedKey = GetSavedKey()
+    if savedKey and type(keysData[savedKey]) == "table" then
+        local info = keysData[savedKey]
+        if info.used == true and tostring(info.hwid or "") == tostring(HWID) then
+            return savedKey
+        else
+            DeleteSavedKey()
+        end
+    end
+
+    -- 2. Direct auto-login by matching HWID in the GitHub JSON database
+    for k, info in pairs(keysData) do
+        if type(info) == "table"
+            and info.used == true
+            and tostring(info.hwid or "") ~= ""
+            and tostring(info.hwid) == tostring(HWID)
+        then
+            SaveKeyLocally(k)
+            return k
+        end
+    end
+
+    return nil
+end
+
+local function VerifyKeyOnline(userKey)
+    local keysData, errMsg = FetchKeysDatabase()
+    if not keysData then
+        return false, errMsg
     end
 
     local keyInfo = keysData[userKey]
-
-    if not keyInfo then
+    if not keyInfo or type(keyInfo) ~= "table" then
         return false, "Invalid or non-existent key!"
     end
 
-    if keyInfo.used == true
-        and keyInfo.hwid ~= ""
-        and keyInfo.hwid ~= HWID then
-        return false, "Key already used on another device!"
+    -- Reject manual entry if the key is already bound (used == true or hwid_bound == "yes")
+    local alreadyBound = (keyInfo.used == true)
+        or (tostring(keyInfo.hwid_bound or ""):lower() == "yes")
+        or (tostring(keyInfo.hwid or "") ~= "")
+
+    if alreadyBound then
+        return false, "Key already redeemed! Bound HWID logs in automatically."
     end
 
     SaveKeyLocally(userKey)
-
     return true, "Authentication successful!"
 end
 
 --============================================================
--- AUTO LOGIN
+-- AUTO LOGIN EXECUTION
 --============================================================
 
-local savedKey = GetSavedKey()
+local autoKey = CheckAutoLoginByHWID()
 
-if savedKey then
-    local isValid = VerifyKeyOnline(savedKey)
-
-    if isValid then
-        local gameScriptUrl = GetScriptForCurrentGame()
-
-        if gameScriptUrl then
-            SendAuthLog(savedKey)
-            StartGame(gameScriptUrl)
-            return
-        end
-    else
-        DeleteSavedKey()
+if autoKey then
+    local gameScriptUrl = GetScriptForCurrentGame()
+    if gameScriptUrl then
+        SendAuthLog(autoKey)
+        StartGame(gameScriptUrl)
+        return
     end
 end
 
 --============================================================
--- GUI
+-- GUI — ROUNDED CHILL RAIN & GLASSMORPHISM
 --============================================================
 
 local GUI_NAME = "Kosmos_Loader_UI"
+local BLUR_NAME = "Kosmos_World_Blur"
 
 if CoreGui:FindFirstChild(GUI_NAME) then
     CoreGui[GUI_NAME]:Destroy()
 end
+if Lighting:FindFirstChild(BLUR_NAME) then
+    Lighting[BLUR_NAME]:Destroy()
+end
+
+local WorldBlur = Instance.new("BlurEffect")
+WorldBlur.Name = BLUR_NAME
+WorldBlur.Size = 0
+WorldBlur.Parent = Lighting
+
+TweenService:Create(
+    WorldBlur,
+    TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+    { Size = 16 }
+):Play()
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_NAME
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
+local RainConnection = nil
+
+local PANEL_WIDTH = 395
+local PANEL_HEIGHT = 260
+local CORNER_RADIUS = UDim.new(0, 18)
+
+-- Main Window
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(360, 220)
+Main.Name = "MainFrame"
+Main.Size = UDim2.fromOffset(PANEL_WIDTH, PANEL_HEIGHT)
 Main.Position = UDim2.fromScale(0.5, 0.5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(12, 10, 18)
+Main.BackgroundColor3 = Color3.fromRGB(12, 16, 28)
+Main.BackgroundTransparency = 0.14
 Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
+Main.ClipsDescendants = true
 Main.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = Main
+local targetScale = IsMobile and 0.92 or 1
+local UIScale = Instance.new("UIScale")
+UIScale.Scale = targetScale * 0.94
+UIScale.Parent = Main
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(145, 45, 255)
-Stroke.Thickness = 1.5
-Stroke.Parent = Main
+TweenService:Create(
+    UIScale,
+    TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    { Scale = targetScale }
+):Play()
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = CORNER_RADIUS
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(130, 168, 255)
+MainStroke.Transparency = 0.58
+MainStroke.Thickness = 1.3
+MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+MainStroke.Parent = Main
+
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Rotation = 135
+MainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 32, 58)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 16, 28)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 22, 54))
+})
+MainGradient.Parent = Main
+
+--============================================================
+-- PROCEDURAL CHILL RAIN LAYER
+--============================================================
+
+local RainContainer = Instance.new("Frame")
+RainContainer.Name = "RainContainer"
+RainContainer.Size = UDim2.new(1, -16, 1, -16)
+RainContainer.Position = UDim2.fromOffset(8, 8)
+RainContainer.BackgroundTransparency = 1
+RainContainer.ClipsDescendants = true
+RainContainer.ZIndex = 2
+RainContainer.Parent = Main
+
+local RainCorner = Instance.new("UICorner")
+RainCorner.CornerRadius = UDim.new(0, 14)
+RainCorner.Parent = RainContainer
+
+local raindrops = {}
+local DROP_COUNT = IsMobile and 26 or 38
+local RAIN_W = PANEL_WIDTH - 16
+local RAIN_H = PANEL_HEIGHT - 16
+
+math.randomseed(os.clock() * 10000)
+
+for i = 1, DROP_COUNT do
+    local isForeground = (i % 3 == 0)
+    local width = isForeground and 2 or 1
+    local length = isForeground and math.random(20, 30) or math.random(12, 18)
+    local speed = isForeground and math.random(145, 195) or math.random(80, 125)
+    local baseTransp = isForeground and (math.random(58, 70) / 100) or (math.random(78, 88) / 100)
+
+    local drop = Instance.new("Frame")
+    drop.BorderSizePixel = 0
+    drop.Size = UDim2.fromOffset(width, length)
+    drop.BackgroundColor3 = isForeground
+        and Color3.fromRGB(185, 215, 255)
+        or Color3.fromRGB(135, 170, 235)
+    drop.BackgroundTransparency = baseTransp
+    drop.Rotation = 11
+    drop.ZIndex = 2
+    drop.Parent = RainContainer
+
+    local dropCorner = Instance.new("UICorner")
+    dropCorner.CornerRadius = UDim.new(1, 0)
+    dropCorner.Parent = drop
+
+    local dropGrad = Instance.new("UIGradient")
+    dropGrad.Rotation = 90
+    dropGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.45, 0.25),
+        NumberSequenceKeypoint.new(1, 0)
+    })
+    dropGrad.Parent = drop
+
+    local startX = math.random(0, RAIN_W + 25)
+    local startY = math.random(-RAIN_H, RAIN_H)
+    drop.Position = UDim2.fromOffset(startX, startY)
+
+    table.insert(raindrops, {
+        obj = drop,
+        x = startX,
+        y = startY,
+        len = length,
+        speed = speed,
+        drift = speed * 0.19
+    })
+end
+
+RainConnection = RunService.RenderStepped:Connect(function(dt)
+    local safeDt = math.min(dt, 0.05)
+    for _, d in ipairs(raindrops) do
+        d.y = d.y + (d.speed * safeDt)
+        d.x = d.x - (d.drift * safeDt)
+
+        if d.y > RAIN_H + 10 then
+            d.y = -d.len - math.random(5, 25)
+            d.x = math.random(0, RAIN_W + 35)
+        end
+
+        d.obj.Position = UDim2.fromOffset(d.x, d.y)
+    end
+end)
+
+-- Rounded Frosted Overlay
+local GlassFrost = Instance.new("Frame")
+GlassFrost.Name = "GlassFrost"
+GlassFrost.Size = UDim2.fromScale(1, 1)
+GlassFrost.BackgroundColor3 = Color3.fromRGB(10, 13, 22)
+GlassFrost.BackgroundTransparency = 0.45
+GlassFrost.BorderSizePixel = 0
+GlassFrost.ZIndex = 3
+GlassFrost.Parent = Main
+
+local FrostCorner = Instance.new("UICorner")
+FrostCorner.CornerRadius = CORNER_RADIUS
+FrostCorner.Parent = GlassFrost
+
+--============================================================
+-- FOREGROUND UI CONTENT
+--============================================================
+
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.fromScale(1, 1)
+Content.BackgroundTransparency = 1
+Content.ZIndex = 4
+Content.Parent = Main
+
+local function CloseUI()
+    if RainConnection then
+        RainConnection:Disconnect()
+        RainConnection = nil
+    end
+
+    TweenService:Create(
+        WorldBlur,
+        TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In),
+        { Size = 0 }
+    ):Play()
+
+    TweenService:Create(
+        UIScale,
+        TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+        { Scale = targetScale * 0.92 }
+    ):Play()
+
+    task.delay(0.28, function()
+        if WorldBlur and WorldBlur.Parent then
+            WorldBlur:Destroy()
+        end
+        if ScreenGui and ScreenGui.Parent then
+            ScreenGui:Destroy()
+        end
+    end)
+end
+
+-- Top Bar
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 46)
+TopBar.BackgroundTransparency = 1
+TopBar.ZIndex = 5
+TopBar.Parent = Content
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Position = UDim2.fromOffset(0, 10)
+Title.Size = UDim2.new(1, -110, 1, 0)
+Title.Position = UDim2.fromOffset(20, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "KOSMOS HUB — AUTHENTICATION (" ..
-    (IsMobile and "MOBILE" or "PC") .. ")"
-Title.TextColor3 = Color3.fromRGB(245, 242, 250)
-Title.TextSize = 12
+Title.Text = "KOSMOS HUB"
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.TextColor3 = Color3.fromRGB(240, 245, 255)
+Title.TextSize = 14
 Title.Font = Enum.Font.GothamBold
-Title.Parent = Main
+Title.ZIndex = 5
+Title.Parent = TopBar
 
+local ModeBadge = Instance.new("TextLabel")
+ModeBadge.Size = UDim2.fromOffset(54, 20)
+ModeBadge.Position = UDim2.new(1, -96, 0.5, -10)
+ModeBadge.BackgroundColor3 = Color3.fromRGB(115, 160, 255)
+ModeBadge.BackgroundTransparency = 0.82
+ModeBadge.Text = IsMobile and "MOBILE" or "PC"
+ModeBadge.TextColor3 = Color3.fromRGB(185, 215, 255)
+ModeBadge.TextSize = 9
+ModeBadge.Font = Enum.Font.GothamBold
+ModeBadge.ZIndex = 5
+ModeBadge.Parent = TopBar
+
+local BadgeCorner = Instance.new("UICorner")
+BadgeCorner.CornerRadius = UDim.new(1, 0)
+BadgeCorner.Parent = ModeBadge
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.fromOffset(24, 24)
+CloseBtn.Position = UDim2.new(1, -34, 0.5, -12)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.BackgroundTransparency = 0.93
+CloseBtn.Text = "×"
+CloseBtn.TextColor3 = Color3.fromRGB(200, 210, 230)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.ZIndex = 5
+CloseBtn.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(1, 0)
+CloseCorner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(CloseUI)
+
+-- Thin Divider
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, -40, 0, 1)
+Divider.Position = UDim2.fromOffset(20, 46)
+Divider.BackgroundColor3 = Color3.fromRGB(165, 195, 255)
+Divider.BackgroundTransparency = 0.88
+Divider.BorderSizePixel = 0
+Divider.ZIndex = 5
+Divider.Parent = Content
+
+-- Subtitle
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, -40, 0, 18)
+Subtitle.Position = UDim2.fromOffset(20, 56)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Enter your license key to unlock access"
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.TextColor3 = Color3.fromRGB(165, 178, 205)
+Subtitle.TextSize = 11
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.ZIndex = 5
+Subtitle.Parent = Content
+
+-- Key Input
 local KeyInput = Instance.new("TextBox")
-KeyInput.Size = UDim2.new(1, -40, 0, 40)
-KeyInput.Position = UDim2.fromOffset(20, 55)
-KeyInput.BackgroundColor3 = Color3.fromRGB(20, 16, 28)
+KeyInput.Size = UDim2.new(1, -40, 0, 42)
+KeyInput.Position = UDim2.fromOffset(20, 80)
+KeyInput.BackgroundColor3 = Color3.fromRGB(15, 19, 32)
+KeyInput.BackgroundTransparency = 0.25
 KeyInput.Text = ""
 KeyInput.PlaceholderText = "Paste your license key here..."
-KeyInput.PlaceholderColor3 = Color3.fromRGB(120, 115, 135)
-KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyInput.PlaceholderColor3 = Color3.fromRGB(115, 128, 155)
+KeyInput.TextColor3 = Color3.fromRGB(245, 248, 255)
 KeyInput.Font = Enum.Font.GothamMedium
-KeyInput.TextSize = 11
-KeyInput.Parent = Main
+KeyInput.TextSize = 12
+KeyInput.ClearTextOnFocus = false
+KeyInput.ZIndex = 5
+KeyInput.Parent = Content
 
 local InputCorner = Instance.new("UICorner")
-InputCorner.CornerRadius = UDim.new(0, 8)
+InputCorner.CornerRadius = UDim.new(0, 12)
 InputCorner.Parent = KeyInput
 
 local InputStroke = Instance.new("UIStroke")
-InputStroke.Color = Color3.fromRGB(45, 38, 60)
-InputStroke.Thickness = 1
+InputStroke.Color = Color3.fromRGB(65, 82, 120)
+InputStroke.Transparency = 0.35
+InputStroke.Thickness = 1.2
+InputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 InputStroke.Parent = KeyInput
 
-local StatusLbl = Instance.new("TextLabel")
-StatusLbl.Size = UDim2.new(1, -40, 0, 20)
-StatusLbl.Position = UDim2.fromOffset(20, 100)
-StatusLbl.BackgroundTransparency = 1
-StatusLbl.Text = "Waiting for key... [Mode: " ..
-    (IsMobile and "Mobile" or "PC") .. "]"
-StatusLbl.TextColor3 = Color3.fromRGB(150, 143, 163)
-StatusLbl.TextSize = 10
-StatusLbl.Font = Enum.Font.GothamMedium
-StatusLbl.Parent = Main
+KeyInput.Focused:Connect(function()
+    TweenService:Create(InputStroke, TweenInfo.new(0.25), {
+        Color = Color3.fromRGB(125, 175, 255),
+        Transparency = 0.1
+    }):Play()
+end)
 
+KeyInput.FocusLost:Connect(function()
+    TweenService:Create(InputStroke, TweenInfo.new(0.25), {
+        Color = Color3.fromRGB(65, 82, 120),
+        Transparency = 0.35
+    }):Play()
+end)
+
+-- Status Indicator (LED + Label)
+local StatusDot = Instance.new("Frame")
+StatusDot.Size = UDim2.fromOffset(6, 6)
+StatusDot.Position = UDim2.fromOffset(21, 134)
+StatusDot.BackgroundColor3 = Color3.fromRGB(125, 175, 255)
+StatusDot.BorderSizePixel = 0
+StatusDot.ZIndex = 5
+StatusDot.Parent = Content
+
+local DotCorner = Instance.new("UICorner")
+DotCorner.CornerRadius = UDim.new(1, 0)
+DotCorner.Parent = StatusDot
+
+local StatusLbl = Instance.new("TextLabel")
+StatusLbl.Size = UDim2.new(1, -54, 0, 18)
+StatusLbl.Position = UDim2.fromOffset(33, 128)
+StatusLbl.BackgroundTransparency = 1
+StatusLbl.Text = "Waiting for license key..."
+StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+StatusLbl.TextColor3 = Color3.fromRGB(165, 178, 205)
+StatusLbl.TextSize = 11
+StatusLbl.Font = Enum.Font.GothamMedium
+StatusLbl.ZIndex = 5
+StatusLbl.Parent = Content
+
+local function SetStatus(text, color)
+    StatusLbl.Text = text
+    TweenService:Create(StatusLbl, TweenInfo.new(0.2), { TextColor3 = color }):Play()
+    TweenService:Create(StatusDot, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
+end
+
+-- Primary VERIFY KEY Button
 local VerifyBtn = Instance.new("TextButton")
-VerifyBtn.Size = UDim2.new(1, -40, 0, 40)
-VerifyBtn.Position = UDim2.fromOffset(20, 130)
-VerifyBtn.BackgroundColor3 = Color3.fromRGB(145, 45, 255)
+VerifyBtn.Size = UDim2.new(1, -40, 0, 42)
+VerifyBtn.Position = UDim2.fromOffset(20, 154)
+VerifyBtn.BackgroundColor3 = Color3.fromRGB(95, 135, 245)
 VerifyBtn.Text = "VERIFY KEY"
 VerifyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 VerifyBtn.Font = Enum.Font.GothamBold
-VerifyBtn.TextSize = 11
-VerifyBtn.Parent = Main
+VerifyBtn.TextSize = 12
+VerifyBtn.AutoButtonColor = false
+VerifyBtn.ZIndex = 5
+VerifyBtn.Parent = Content
 
 local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 8)
+BtnCorner.CornerRadius = UDim.new(0, 12)
 BtnCorner.Parent = VerifyBtn
+
+local BtnGradient = Instance.new("UIGradient")
+BtnGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(105, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 95, 245))
+})
+BtnGradient.Parent = VerifyBtn
+
+VerifyBtn.MouseEnter:Connect(function()
+    if VerifyBtn.Active then
+        TweenService:Create(VerifyBtn, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.1
+        }):Play()
+    end
+end)
+
+VerifyBtn.MouseLeave:Connect(function()
+    if VerifyBtn.Active then
+        TweenService:Create(VerifyBtn, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0
+        }):Play()
+    end
+end)
+
+-- Secondary COPY HWID Button
+local CopyHwidBtn = Instance.new("TextButton")
+CopyHwidBtn.Size = UDim2.new(1, -40, 0, 32)
+CopyHwidBtn.Position = UDim2.fromOffset(20, 204)
+CopyHwidBtn.BackgroundColor3 = Color3.fromRGB(165, 195, 255)
+CopyHwidBtn.BackgroundTransparency = 0.92
+CopyHwidBtn.Text = "COPY DEVICE HWID"
+CopyHwidBtn.TextColor3 = Color3.fromRGB(185, 200, 228)
+CopyHwidBtn.Font = Enum.Font.GothamSemibold
+CopyHwidBtn.TextSize = 10
+CopyHwidBtn.ZIndex = 5
+CopyHwidBtn.Parent = Content
+
+local CopyCorner = Instance.new("UICorner")
+CopyCorner.CornerRadius = UDim.new(0, 10)
+CopyCorner.Parent = CopyHwidBtn
+
+CopyHwidBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        setclipboard(tostring(HWID))
+        CopyHwidBtn.Text = "HWID COPIED!"
+        CopyHwidBtn.TextColor3 = Color3.fromRGB(105, 230, 165)
+        task.delay(1.8, function()
+            if CopyHwidBtn and CopyHwidBtn.Parent then
+                CopyHwidBtn.Text = "COPY DEVICE HWID"
+                CopyHwidBtn.TextColor3 = Color3.fromRGB(185, 200, 228)
+            end
+        end)
+    else
+        SetStatus("Clipboard not supported on this executor.", Color3.fromRGB(245, 105, 120))
+    end
+end)
+
+--============================================================
+-- SMOOTH DRAGGING (PC + MOBILE TOUCH)
+--============================================================
+
+do
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    TopBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
 
 --============================================================
 -- VERIFY BUTTON LOGIC
 --============================================================
 
+local COLOR_CHECKING = Color3.fromRGB(130, 180, 255)
+local COLOR_SUCCESS = Color3.fromRGB(105, 230, 165)
+local COLOR_ERROR = Color3.fromRGB(245, 105, 120)
+
 VerifyBtn.MouseButton1Click:Connect(function()
     local userTypedKey = KeyInput.Text:gsub("%s+", "")
 
     if userTypedKey == "" then
-        StatusLbl.Text = "Please enter a valid key!"
-        StatusLbl.TextColor3 = Color3.fromRGB(240, 75, 100)
+        SetStatus("Please enter a valid key!", COLOR_ERROR)
         return
     end
 
     VerifyBtn.Text = "VERIFYING..."
     VerifyBtn.Active = false
-
-    StatusLbl.Text = "Checking HWID and validity..."
-    StatusLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+    SetStatus("Checking HWID and license...", COLOR_CHECKING)
 
     task.spawn(function()
         local success, message = VerifyKeyOnline(userTypedKey)
@@ -524,33 +899,19 @@ VerifyBtn.MouseButton1Click:Connect(function()
 
             if scriptUrl then
                 SendAuthLog(userTypedKey)
+                SetStatus("Launching (" .. (IsMobile and "Mobile" or "PC") .. ")...", COLOR_SUCCESS)
 
-                StatusLbl.Text = "Launching (" ..
-                    (IsMobile and "Mobile" or "PC") .. " Version)..."
+                task.wait(0.4)
 
-                StatusLbl.TextColor3 = Color3.fromRGB(80, 220, 135)
-
-                task.wait(0.3)
-
-                ScreenGui:Destroy()
+                CloseUI()
                 StartGame(scriptUrl)
             else
-                StatusLbl.Text = "Game not supported (Place " ..
-                    tostring(game.PlaceId) .. ")"
-
-                StatusLbl.TextColor3 = Color3.fromRGB(240, 75, 100)
-
-                warn("[KOSMOS] PlaceId: " ..
-                    tostring(game.PlaceId) ..
-                    " | GameId: " .. tostring(game.GameId))
-
+                SetStatus("Game not supported (Place " .. tostring(game.PlaceId) .. ")", COLOR_ERROR)
                 VerifyBtn.Text = "VERIFY KEY"
                 VerifyBtn.Active = true
             end
         else
-            StatusLbl.Text = message
-            StatusLbl.TextColor3 = Color3.fromRGB(240, 75, 100)
-
+            SetStatus(message, COLOR_ERROR)
             VerifyBtn.Text = "VERIFY KEY"
             VerifyBtn.Active = true
         end
