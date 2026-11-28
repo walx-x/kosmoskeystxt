@@ -63,8 +63,8 @@
         "used": false,
         "rank": "Pro",
         "duration": "24 Hours",
-        "owner_id": null,
-        "owner_name": null,
+        "owner_id": 1569381118250066122,
+        "owner_name": "aint0me",
         "created_at": "2026-11-28T00:23:19+00:00",
         "expires_at": "2026-11-29T00:23:19+00:00",
         "expires_ts": 1795911799
