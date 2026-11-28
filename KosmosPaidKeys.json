@@ -81,15 +81,20 @@
         "roblox_username": "mama0000315"
     },
     "KoSMO-A1A9-S9L4": {
-        "hwid": null,
-        "hwid_bound": "no",
-        "used": false,
+        "hwid": "D892324B-FC5B-4733-9994-74815B78B435",
+        "hwid_bound": "yes",
+        "used": true,
         "rank": "Pro",
         "duration": "7 Days",
         "owner_id": 1362712531478773942,
         "owner_name": "scourx_",
         "created_at": "2026-11-28T01:12:50+00:00",
         "expires_at": "2026-12-05T01:12:50+00:00",
-        "expires_ts": 1796433170
+        "expires_ts": 1796433170,
+        "bound_at": "2026-11-28T10:36:20+00:00",
+        "roblox_usernames": [
+            "spynebb_brainrot111"
+        ],
+        "roblox_username": "spynebb_brainrot111"
     }
 }
