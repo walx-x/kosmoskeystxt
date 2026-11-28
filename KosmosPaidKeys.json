@@ -58,15 +58,20 @@
         "expires_ts": 1795911350
     },
     "KoSMO-KOUT-J46O": {
-        "hwid": null,
-        "hwid_bound": "no",
-        "used": false,
+        "hwid": "4D00C257-9634-477B-843D-5500890D1E12",
+        "hwid_bound": "yes",
+        "used": true,
         "rank": "Pro",
         "duration": "24 Hours",
         "owner_id": 1569381118250066122,
         "owner_name": "aint0me",
         "created_at": "2026-11-28T00:23:19+00:00",
         "expires_at": "2026-11-29T00:23:19+00:00",
-        "expires_ts": 1795911799
+        "expires_ts": 1795911799,
+        "bound_at": "2026-11-28T00:25:56+00:00",
+        "roblox_usernames": [
+            "mama0000315"
+        ],
+        "roblox_username": "mama0000315"
     }
 }
